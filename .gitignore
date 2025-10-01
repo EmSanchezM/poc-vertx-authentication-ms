@@ -1,0 +1,48 @@
+# Gradle
+.gradle/
+build/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment Variables and Sensitive Configuration
+.env
+.env.local
+.env.*.local
+application-local.properties
+application-dev.properties
+
+# Secrets and Keys
+*.key
+*.pem
+*.p12
+*.jks
+secrets/
+
+# Test reports
+test-results/
+reports/
+
+# Docker volumes
+postgres_data/
+redis_data/
+prometheus_data/
+grafana_data/
+
+#Agents
+.kiro

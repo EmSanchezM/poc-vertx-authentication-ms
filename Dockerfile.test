@@ -1,0 +1,17 @@
+# Dockerfile for running tests with JDK 21
+FROM gradle:8.5-jdk21
+
+WORKDIR /app
+
+# Copy gradle files first for better caching
+COPY build.gradle settings.gradle ./
+COPY gradle gradle
+
+# Download dependencies
+RUN gradle dependencies --no-daemon
+
+# Copy source code
+COPY src src
+
+# Default command to run tests
+CMD ["gradle", "test", "--no-daemon", "--info"]

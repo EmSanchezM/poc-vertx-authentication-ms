@@ -1,0 +1,121 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+group = 'com.auth.microservice'
+version = '1.0.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    vertxVersion = '4.5.1'
+    junitVersion = '5.10.1'
+    testcontainersVersion = '1.19.3'
+    logbackVersion = '1.4.14'
+    micrometerVersion = '1.12.1'
+}
+
+dependencies {
+    // Vert.x Core
+    implementation "io.vertx:vertx-core:${vertxVersion}"
+    implementation "io.vertx:vertx-web:${vertxVersion}"
+    implementation "io.vertx:vertx-web-validation:${vertxVersion}"
+    implementation "io.vertx:vertx-json-schema:${vertxVersion}"
+    
+    // Database
+    implementation "io.vertx:vertx-pg-client:${vertxVersion}"
+    implementation "io.vertx:vertx-sql-client:${vertxVersion}"
+    implementation "org.postgresql:postgresql:42.7.1"
+    implementation "org.flywaydb:flyway-core:10.4.1"
+    implementation "org.flywaydb:flyway-database-postgresql:10.4.1"
+    
+    // Redis
+    implementation "io.vertx:vertx-redis-client:${vertxVersion}"
+    
+    // JWT
+    implementation "io.jsonwebtoken:jjwt-api:0.12.3"
+    implementation "io.jsonwebtoken:jjwt-impl:0.12.3"
+    implementation "io.jsonwebtoken:jjwt-jackson:0.12.3"
+    
+    // Password hashing
+    implementation "org.springframework.security:spring-security-crypto:6.2.1"
+    implementation "org.bouncycastle:bcprov-jdk18on:1.77"
+    
+    // Validation
+    implementation "jakarta.validation:jakarta.validation-api:3.0.2"
+    implementation "org.hibernate.validator:hibernate-validator:8.0.1.Final"
+    implementation "org.glassfish:jakarta.el:4.0.2"
+    
+    // Logging
+    implementation "ch.qos.logback:logback-classic:${logbackVersion}"
+    implementation "net.logstash.logback:logstash-logback-encoder:7.4"
+    
+    // Metrics and Monitoring
+    implementation "io.micrometer:micrometer-core:${micrometerVersion}"
+    implementation "io.micrometer:micrometer-registry-prometheus:${micrometerVersion}"
+    implementation "io.vertx:vertx-micrometer-metrics:${vertxVersion}"
+    
+    // Configuration
+    implementation "io.vertx:vertx-config:${vertxVersion}"
+    
+    // HTTP Client for GeoLocation
+    implementation "io.vertx:vertx-web-client:${vertxVersion}"
+    
+    // Testing
+    testImplementation "io.vertx:vertx-junit5:${vertxVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
+    testImplementation "org.mockito:mockito-core:5.8.0"
+    testImplementation "org.mockito:mockito-junit-jupiter:5.8.0"
+    testImplementation "org.assertj:assertj-core:3.25.1"
+    
+    // Testcontainers
+    testImplementation "org.testcontainers:junit-jupiter:${testcontainersVersion}"
+    testImplementation "org.testcontainers:postgresql:${testcontainersVersion}"
+    testImplementation "org.testcontainers:testcontainers:${testcontainersVersion}"
+    
+    // Test utilities
+    testImplementation "io.rest-assured:rest-assured:5.4.0"
+}
+
+application {
+    mainClass = 'com.auth.microservice.Main'
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
+
+shadowJar {
+    archiveClassifier = 'fat'
+    manifest {
+        attributes 'Main-Class': 'com.auth.microservice.Main'
+    }
+    mergeServiceFiles()
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+    options.compilerArgs.addAll(['--enable-preview'])
+}
+
+tasks.withType(Test) {
+    jvmArgs(['--enable-preview'])
+}
+
+tasks.withType(JavaExec) {
+    jvmArgs(['--enable-preview'])
+}

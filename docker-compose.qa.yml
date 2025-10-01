@@ -1,0 +1,179 @@
+# =============================================================================
+# AUTH MICROSERVICE - QA/STAGING DOCKER COMPOSE
+# =============================================================================
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.qa.yml up
+
+version: '3.8'
+
+services:
+  auth-service:
+    environment:
+      # QA overrides
+      APP_ENV: qa
+      LOG_LEVEL: INFO
+      
+      # Database configuration for QA
+      DB_NAME: auth_microservice_qa
+      DB_USERNAME: auth_user_qa
+      DB_PASSWORD: qa_secure_password_123
+      DB_POOL_MAX_SIZE: 30
+      DB_POOL_MAX_WAIT_QUEUE: 75
+      DB_HEALTH_CHECK_INTERVAL: 30000
+      
+      # Redis configuration for QA
+      REDIS_PASSWORD: qa_redis_password_123
+      
+      # JWT configuration for QA
+      JWT_SECRET: qa-jwt-secret-key-for-testing-environment-should-be-secure-but-not-production
+      JWT_ISSUER: auth-microservice-qa
+      JWT_ACCESS_TOKEN_EXPIRY: 1800
+      JWT_REFRESH_TOKEN_EXPIRY: 86400
+      
+      # Security configuration (moderate for QA)
+      BCRYPT_ROUNDS: 10
+      RATE_LIMIT_LOGIN_ATTEMPTS: 8
+      RATE_LIMIT_LOGIN_BLOCK_MINUTES: 45
+      RATE_LIMIT_API_REQUESTS_PER_MINUTE: 120
+      
+      # CORS configuration (moderate for QA)
+      CORS_ALLOWED_ORIGINS: "https://qa.yourdomain.com,https://qa-app.yourdomain.com,http://localhost:3000"
+      CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS"
+      CORS_ALLOWED_HEADERS: "Content-Type,Authorization,X-Requested-With,X-Test-Header"
+      
+      # Logging configuration (detailed for QA)
+      LOG_FORMAT: json
+      LOG_FILE_ENABLED: true
+      LOG_FILE_PATH: /var/log/auth-microservice/qa.log
+      LOG_FILE_MAX_SIZE: 20MB
+      LOG_FILE_MAX_FILES: 5
+      
+      # External services (test configuration)
+      EMAIL_ENABLED: true
+      EMAIL_SMTP_HOST: smtp.mailtrap.io
+      EMAIL_SMTP_PORT: 587
+      EMAIL_SMTP_USERNAME: qa_email_username
+      EMAIL_SMTP_PASSWORD: qa_email_password
+      EMAIL_FROM_ADDRESS: qa-noreply@yourdomain.com
+      EMAIL_FROM_NAME: Auth Microservice QA
+      
+      GEOLOCATION_ENABLED: true
+      GEOLOCATION_API_KEY: qa_geolocation_api_key
+      
+      # QA features
+      DEV_MODE: false
+      DEV_AUTO_RELOAD: false
+      DEV_MOCK_EXTERNAL_SERVICES: false
+      
+      # QA specific configuration
+      QA_SEED_TEST_DATA: true
+      QA_RESET_DB_ON_STARTUP: false
+      QA_ENABLE_TEST_ENDPOINTS: true
+      QA_ENABLE_PERFORMANCE_LOGGING: true
+      QA_SLOW_QUERY_THRESHOLD: 1000
+      QA_ENABLE_SECURITY_HEADERS: true
+      QA_ENABLE_AUDIT_LOGGING: true
+    
+    # QA-specific volumes
+    volumes:
+      - ./logs:/app/logs
+      - qa_logs:/var/log/auth-microservice
+    
+    # Expose ports for testing
+    ports:
+      - "8080:8080"
+      - "9090:9090"  # Metrics port for monitoring
+    
+    # QA resource limits (moderate)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1.5G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Health check for QA
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    environment:
+      POSTGRES_DB: auth_microservice_qa
+      POSTGRES_USER: auth_user_qa
+      POSTGRES_PASSWORD: qa_secure_password_123
+    
+    # QA PostgreSQL configuration (balanced performance)
+    command: >
+      postgres
+      -c max_connections=100
+      -c shared_buffers=128MB
+      -c effective_cache_size=512MB
+      -c maintenance_work_mem=32MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=8MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=2MB
+      -c min_wal_size=512MB
+      -c max_wal_size=2GB
+      -c log_min_duration_statement=500
+      -c log_statement=mod
+    
+    # Expose PostgreSQL port for QA testing
+    ports:
+      - "5432:5432"
+    
+    # QA resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  redis:
+    environment:
+      REDIS_PASSWORD: qa_redis_password_123
+    
+    # QA Redis configuration
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass qa_redis_password_123
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --loglevel notice
+    
+    # Expose Redis port for QA testing
+    ports:
+      - "6379:6379"
+    
+    # QA resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+# QA-specific volumes
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  qa_logs:
+    driver: local

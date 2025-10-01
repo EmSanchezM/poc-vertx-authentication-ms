@@ -1,0 +1,165 @@
+# =============================================================================
+# AUTH MICROSERVICE - PRODUCTION DOCKER COMPOSE
+# =============================================================================
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.production.yml up
+
+version: '3.8'
+
+services:
+  auth-service:
+    environment:
+      # Production overrides
+      APP_ENV: production
+      LOG_LEVEL: WARN
+      
+      # Database configuration for production
+      DB_NAME: auth_microservice_prod
+      DB_USERNAME: auth_user_prod
+      # DB_PASSWORD should be provided via environment variable or secrets
+      DB_POOL_MAX_SIZE: 50
+      DB_POOL_MAX_WAIT_QUEUE: 100
+      DB_RECONNECT_ATTEMPTS: 5
+      DB_RECONNECT_INTERVAL: 2000
+      DB_HEALTH_CHECK_INTERVAL: 60000
+      
+      # JWT configuration for production
+      JWT_ISSUER: auth-microservice-prod
+      JWT_ACCESS_TOKEN_EXPIRY: 900
+      JWT_REFRESH_TOKEN_EXPIRY: 604800
+      
+      # Security configuration (strict for production)
+      BCRYPT_ROUNDS: 12
+      RATE_LIMIT_LOGIN_ATTEMPTS: 5
+      RATE_LIMIT_LOGIN_WINDOW_MINUTES: 15
+      RATE_LIMIT_LOGIN_BLOCK_MINUTES: 60
+      RATE_LIMIT_API_REQUESTS_PER_MINUTE: 60
+      
+      # CORS configuration (restrictive for production)
+      CORS_ALLOWED_ORIGINS: "https://yourdomain.com,https://app.yourdomain.com"
+      CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS"
+      CORS_ALLOWED_HEADERS: "Content-Type,Authorization,X-Requested-With"
+      
+      # Logging configuration (structured for production)
+      LOG_FORMAT: json
+      LOG_FILE_ENABLED: true
+      LOG_FILE_PATH: /var/log/auth-microservice/app.log
+      LOG_FILE_MAX_SIZE: 50MB
+      LOG_FILE_MAX_FILES: 10
+      
+      # External services (enabled for production)
+      EMAIL_ENABLED: true
+      GEOLOCATION_ENABLED: true
+      
+      # Production features
+      DEV_MODE: false
+      DEV_AUTO_RELOAD: false
+      DEV_MOCK_EXTERNAL_SERVICES: false
+    
+    # Production-specific volumes
+    volumes:
+      - /var/log/auth-microservice:/var/log/auth-microservice
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+    
+    # Only expose necessary ports
+    ports:
+      - "8080:8080"
+    
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    
+    # Production restart policy
+    restart: always
+    
+    # Health check for production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    environment:
+      POSTGRES_DB: auth_microservice_prod
+      POSTGRES_USER: auth_user_prod
+      # POSTGRES_PASSWORD should be provided via environment variable or secrets
+    
+    # Production PostgreSQL configuration
+    command: >
+      postgres
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+      -c log_min_duration_statement=1000
+    
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    
+    # Production volumes with backup considerations
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - /var/backups/postgres:/var/backups/postgres
+    
+    restart: always
+
+  redis:
+    # Production Redis configuration
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    restart: always
+
+# Production-specific volumes with backup considerations
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/docker/volumes/auth_postgres_data
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/docker/volumes/auth_redis_data

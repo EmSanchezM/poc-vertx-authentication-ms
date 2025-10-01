@@ -1,0 +1,113 @@
+# =============================================================================
+# AUTH MICROSERVICE - DEVELOPMENT DOCKER COMPOSE
+# =============================================================================
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.development.yml up
+
+version: '3.8'
+
+services:
+  auth-service:
+    environment:
+      # Development overrides
+      APP_ENV: development
+      LOG_LEVEL: DEBUG
+      
+      # Database configuration for development
+      DB_NAME: auth_microservice_dev
+      DB_USERNAME: auth_user
+      DB_PASSWORD: dev_password_123
+      DB_POOL_MAX_SIZE: 10
+      DB_POOL_MAX_WAIT_QUEUE: 25
+      DB_HEALTH_CHECK_INTERVAL: 15000
+      
+      # Redis configuration for development
+      REDIS_PASSWORD: dev_redis_password
+      
+      # JWT configuration for development (longer expiry for convenience)
+      JWT_SECRET: dev-jwt-secret-key-for-development-only-not-secure-enough-for-production
+      JWT_ISSUER: auth-microservice-dev
+      JWT_ACCESS_TOKEN_EXPIRY: 3600
+      JWT_REFRESH_TOKEN_EXPIRY: 86400
+      
+      # Security configuration (relaxed for development)
+      BCRYPT_ROUNDS: 8
+      RATE_LIMIT_LOGIN_ATTEMPTS: 10
+      RATE_LIMIT_LOGIN_BLOCK_MINUTES: 30
+      RATE_LIMIT_API_REQUESTS_PER_MINUTE: 200
+      
+      # CORS configuration (permissive for development)
+      CORS_ALLOWED_ORIGINS: "*"
+      CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS,PATCH"
+      CORS_ALLOWED_HEADERS: "*"
+      
+      # Logging configuration (verbose for development)
+      LOG_FORMAT: pretty
+      LOG_FILE_ENABLED: true
+      LOG_FILE_PATH: logs/auth-microservice-dev.log
+      LOG_FILE_MAX_SIZE: 5MB
+      LOG_FILE_MAX_FILES: 3
+      
+      # External services (disabled for development)
+      EMAIL_ENABLED: false
+      GEOLOCATION_ENABLED: false
+      
+      # Development features
+      DEV_MODE: true
+      DEV_AUTO_RELOAD: true
+      DEV_MOCK_EXTERNAL_SERVICES: true
+    
+    volumes:
+      # Mount source code for hot reload in development
+      - ./src:/app/src:ro
+      - ./logs:/app/logs
+    
+    # Expose additional ports for debugging
+    ports:
+      - "8080:8080"
+      - "5005:5005"  # Debug port
+      - "9090:9090"  # Metrics port
+    
+    # Override command to enable debugging
+    command: >
+      sh -c "java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 
+             $$JAVA_OPTS --enable-preview -jar app.jar"
+
+  postgres:
+    environment:
+      POSTGRES_DB: auth_microservice_dev
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: dev_password_123
+    
+    # Expose PostgreSQL port for external access in development
+    ports:
+      - "5432:5432"
+    
+    # Add development-specific PostgreSQL configuration
+    command: >
+      postgres
+      -c log_statement=all
+      -c log_duration=on
+      -c log_min_duration_statement=0
+      -c shared_preload_libraries=pg_stat_statements
+
+  redis:
+    environment:
+      REDIS_PASSWORD: dev_redis_password
+    
+    # Expose Redis port for external access in development
+    ports:
+      - "6379:6379"
+    
+    # Override command with development-friendly settings
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass dev_redis_password
+      --loglevel verbose
+
+# Development-specific volumes
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
