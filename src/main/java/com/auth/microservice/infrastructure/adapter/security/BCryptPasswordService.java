@@ -4,6 +4,7 @@ import com.auth.microservice.domain.service.PasswordService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.security.SecureRandom;
 import java.util.regex.Pattern;
 
 /**
@@ -15,6 +16,7 @@ public class BCryptPasswordService implements PasswordService {
     
     private final PasswordEncoder passwordEncoder;
     private final int bcryptRounds;
+    private final SecureRandom secureRandom;
     
     // Password validation patterns
     private static final Pattern UPPERCASE_PATTERN = Pattern.compile(".*[A-Z].*");
@@ -24,6 +26,13 @@ public class BCryptPasswordService implements PasswordService {
     
     private static final int MIN_PASSWORD_LENGTH = 8;
     private static final int MAX_PASSWORD_LENGTH = 128;
+    
+    // Temporary password generation constants
+    private static final String UPPERCASE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private static final String LOWERCASE_CHARS = "abcdefghijklmnopqrstuvwxyz";
+    private static final String DIGITS = "0123456789";
+    private static final String SPECIAL_CHARS = "!@#$%^&*()_+-=[]{}|;:,.<>?";
+    private static final int TEMP_PASSWORD_LENGTH = 12;
     
     /**
      * Constructor that uses configuration from application properties.
@@ -36,12 +45,14 @@ public class BCryptPasswordService implements PasswordService {
         }
         this.bcryptRounds = bcryptRounds;
         this.passwordEncoder = new BCryptPasswordEncoder(bcryptRounds);
+        this.secureRandom = new SecureRandom();
     }
     
     // Constructor for testing with custom encoder
     BCryptPasswordService(PasswordEncoder passwordEncoder, int bcryptRounds) {
         this.passwordEncoder = passwordEncoder;
         this.bcryptRounds = bcryptRounds;
+        this.secureRandom = new SecureRandom();
     }
     
     @Override
@@ -120,6 +131,40 @@ public class BCryptPasswordService implements PasswordService {
         }
         
         return new PasswordValidationResult(true, "Password meets all security requirements");
+    }
+    
+    @Override
+    public String generateTemporaryPassword() {
+        StringBuilder password = new StringBuilder(TEMP_PASSWORD_LENGTH);
+        
+        // Ensure at least one character from each required category
+        password.append(UPPERCASE_CHARS.charAt(secureRandom.nextInt(UPPERCASE_CHARS.length())));
+        password.append(LOWERCASE_CHARS.charAt(secureRandom.nextInt(LOWERCASE_CHARS.length())));
+        password.append(DIGITS.charAt(secureRandom.nextInt(DIGITS.length())));
+        password.append(SPECIAL_CHARS.charAt(secureRandom.nextInt(SPECIAL_CHARS.length())));
+        
+        // Fill the rest with random characters from all categories
+        String allChars = UPPERCASE_CHARS + LOWERCASE_CHARS + DIGITS + SPECIAL_CHARS;
+        for (int i = 4; i < TEMP_PASSWORD_LENGTH; i++) {
+            password.append(allChars.charAt(secureRandom.nextInt(allChars.length())));
+        }
+        
+        // Shuffle the password to avoid predictable patterns
+        return shuffleString(password.toString());
+    }
+    
+    /**
+     * Shuffles the characters in a string using Fisher-Yates algorithm.
+     */
+    private String shuffleString(String input) {
+        char[] chars = input.toCharArray();
+        for (int i = chars.length - 1; i > 0; i--) {
+            int j = secureRandom.nextInt(i + 1);
+            char temp = chars[i];
+            chars[i] = chars[j];
+            chars[j] = temp;
+        }
+        return new String(chars);
     }
     
     /**

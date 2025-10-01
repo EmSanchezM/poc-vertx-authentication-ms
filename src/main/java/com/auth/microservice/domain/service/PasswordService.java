@@ -37,6 +37,14 @@ public interface PasswordService {
     PasswordValidationResult validatePasswordStrength(String password);
     
     /**
+     * Generates a secure temporary password for admin-created users.
+     * The password should be strong and meet all security requirements.
+     * 
+     * @return a secure temporary password
+     */
+    String generateTemporaryPassword();
+    
+    /**
      * Result of password strength validation.
      */
     record PasswordValidationResult(
