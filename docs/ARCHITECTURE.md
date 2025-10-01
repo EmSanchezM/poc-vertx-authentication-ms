@@ -805,19 +805,19 @@ public class AuditLog {
 - ✅ Gestión de usuarios y roles
 - ✅ Rate limiting básico
 
-#### Fase 2 (Q2 2024): Enhanced Security
+#### Fase 2 (Q2 2025): Enhanced Security
 - 🔄 Multi-factor authentication
 - 🔄 OAuth2/OIDC integration
 - 🔄 Advanced rate limiting
 - 🔄 Audit dashboard
 
-#### Fase 3 (Q3 2024): Scalability
+#### Fase 3 (Q3 2025): Scalability
 - 📋 Horizontal scaling
 - 📋 Read replicas
 - 📋 Caching optimization
 - 📋 Performance tuning
 
-#### Fase 4 (Q4 2024): Advanced Features
+#### Fase 4 (Q4 2025): Advanced Features
 - 📋 Dynamic permissions
 - 📋 Time-based access
 - 📋 Geolocation restrictions
