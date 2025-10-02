@@ -3,9 +3,12 @@ package com.auth.microservice.application.handler;
 import com.auth.microservice.common.cqrs.CommandHandler;
 import com.auth.microservice.application.command.RefreshTokenCommand;
 import com.auth.microservice.application.result.AuthenticationResult;
+import com.auth.microservice.common.util.TokenHashUtil;
 import com.auth.microservice.domain.exception.InvalidTokenException;
 import com.auth.microservice.domain.model.Email;
+import com.auth.microservice.domain.model.Session;
 import com.auth.microservice.domain.model.User;
+import com.auth.microservice.domain.port.SessionRepository;
 import com.auth.microservice.domain.port.UserRepository;
 import com.auth.microservice.domain.service.JWTService;
 import io.vertx.core.Future;
@@ -18,17 +21,19 @@ import java.util.stream.Collectors;
 
 /**
  * Command handler for token refresh operations.
- * Handles refresh token validation and new token generation.
+ * Handles refresh token validation, session management, and new token generation.
  */
 public class RefreshTokenCommandHandler implements CommandHandler<RefreshTokenCommand, AuthenticationResult> {
 
     private static final Logger logger = LoggerFactory.getLogger(RefreshTokenCommandHandler.class);
 
     private final UserRepository userRepository;
+    private final SessionRepository sessionRepository;
     private final JWTService jwtService;
 
-    public RefreshTokenCommandHandler(UserRepository userRepository, JWTService jwtService) {
+    public RefreshTokenCommandHandler(UserRepository userRepository, SessionRepository sessionRepository, JWTService jwtService) {
         this.userRepository = userRepository;
+        this.sessionRepository = sessionRepository;
         this.jwtService = jwtService;
     }
 
@@ -37,52 +42,87 @@ public class RefreshTokenCommandHandler implements CommandHandler<RefreshTokenCo
         logger.info("Processing token refresh");
         
         try {
-            // Validate refresh token
+            // First, validate the refresh token format
             JWTService.TokenValidationResult validation = jwtService.validateToken(command.getRefreshToken());
             
             if (!validation.isValid()) {
-                logger.warn("Token refresh failed: Invalid refresh token");
+                logger.warn("Token refresh failed: Invalid refresh token format");
                 return Future.succeededFuture(AuthenticationResult.failure("Invalid refresh token"));
             }
             
-            // Extract user information from token
-            Optional<String> userIdOpt = jwtService.extractUserId(command.getRefreshToken());
-            Optional<String> emailOpt = jwtService.extractUserEmail(command.getRefreshToken());
+            // Check if session exists and is valid
+            String refreshTokenHash = TokenHashUtil.hashToken(command.getRefreshToken());
             
-            if (userIdOpt.isEmpty() || emailOpt.isEmpty()) {
-                logger.warn("Token refresh failed: Cannot extract user information from token");
-                return Future.succeededFuture(AuthenticationResult.failure("Invalid token format"));
-            }
-            
-            Email email = new Email(emailOpt.get());
-            
-            return userRepository.findByEmailWithRoles(email)
-                .compose(userOpt -> {
-                    if (userOpt.isEmpty()) {
-                        logger.warn("Token refresh failed: User not found for email: {}", emailOpt.get());
-                        return Future.succeededFuture(AuthenticationResult.failure("User not found"));
+            return sessionRepository.findByRefreshTokenHash(refreshTokenHash)
+                .compose(sessionOpt -> {
+                    if (sessionOpt.isEmpty()) {
+                        logger.warn("Token refresh failed: Session not found for refresh token");
+                        return Future.succeededFuture(AuthenticationResult.failure("Invalid refresh token"));
                     }
                     
-                    User user = userOpt.get();
+                    Session session = sessionOpt.get();
                     
-                    if (!user.isActive()) {
-                        logger.warn("Token refresh failed: User account is inactive for email: {}", emailOpt.get());
-                        return Future.succeededFuture(AuthenticationResult.failure("Account is inactive"));
+                    // Validate session is active and not expired
+                    if (!session.isValid()) {
+                        logger.warn("Token refresh failed: Session is invalid (expired or inactive) for user: {}", session.getUserId());
+                        return Future.succeededFuture(AuthenticationResult.failure("Session expired"));
                     }
                     
-                    // Generate new token pair
-                    Set<String> permissions = user.getAllPermissions().stream()
-                        .map(permission -> permission.getName())
-                        .collect(Collectors.toSet());
+                    // Extract user information from token for additional validation
+                    Optional<String> userIdOpt = jwtService.extractUserId(command.getRefreshToken());
+                    Optional<String> emailOpt = jwtService.extractUserEmail(command.getRefreshToken());
                     
-                    JWTService.TokenPair tokenPair = jwtService.generateTokenPair(
-                        user.getId().toString(),
-                        user.getEmail().getValue(),
-                        permissions
-                    );
+                    if (userIdOpt.isEmpty() || emailOpt.isEmpty()) {
+                        logger.warn("Token refresh failed: Cannot extract user information from token");
+                        return Future.succeededFuture(AuthenticationResult.failure("Invalid token format"));
+                    }
                     
-                    logger.info("Token refresh successful for user: {}", user.getId());
-                    return Future.succeededFuture(AuthenticationResult.success(user, tokenPair));
+                    // Verify token user matches session user
+                    if (!session.getUserId().toString().equals(userIdOpt.get())) {
+                        logger.warn("Token refresh failed: User ID mismatch between token and session");
+                        return Future.succeededFuture(AuthenticationResult.failure("Invalid token"));
+                    }
+                    
+                    Email email = new Email(emailOpt.get());
+                    
+                    return userRepository.findByEmailWithRoles(email)
+                        .compose(userOpt -> {
+                            if (userOpt.isEmpty()) {
+                                logger.warn("Token refresh failed: User not found for email: {}", emailOpt.get());
+                                return Future.succeededFuture(AuthenticationResult.failure("User not found"));
+                            }
+                            
+                            User user = userOpt.get();
+                            
+                            if (!user.isActive()) {
+                                logger.warn("Token refresh failed: User account is inactive for email: {}", emailOpt.get());
+                                return Future.succeededFuture(AuthenticationResult.failure("Account is inactive"));
+                            }
+                            
+                            // Generate new token pair
+                            Set<String> permissions = user.getAllPermissions().stream()
+                                .map(permission -> permission.getName())
+                                .collect(Collectors.toSet());
+                            
+                            JWTService.TokenPair tokenPair = jwtService.generateTokenPair(
+                                user.getId().toString(),
+                                user.getEmail().getValue(),
+                                permissions
+                            );
+                            
+                            // Update session with new tokens
+                            String newAccessTokenHash = TokenHashUtil.hashToken(tokenPair.accessToken());
+                            String newRefreshTokenHash = TokenHashUtil.hashToken(tokenPair.refreshToken());
+                            
+                            session.updateTokens(newAccessTokenHash, newRefreshTokenHash, tokenPair.refreshTokenExpiration());
+                            
+                            return sessionRepository.save(session)
+                                .compose(savedSession -> {
+                                    logger.info("Token refresh successful for user: {} from IP: {}", 
+                                        user.getId(), command.getIpAddress());
+                                    return Future.succeededFuture(AuthenticationResult.success(user, tokenPair));
+                                });
+                        });
                 })
                 .recover(throwable -> {
                     if (throwable instanceof IllegalArgumentException) {
