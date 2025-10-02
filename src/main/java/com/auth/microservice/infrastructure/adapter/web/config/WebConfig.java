@@ -247,10 +247,10 @@ public class WebConfig {
             new com.auth.microservice.infrastructure.adapter.web.UserController(commandBus, queryBus, createAuthenticationMiddleware());
         userController.configureRoutes(router);
         
-        // Configurar controlador administrativo
-        com.auth.microservice.infrastructure.adapter.web.AdminController adminController = 
-            new com.auth.microservice.infrastructure.adapter.web.AdminController(commandBus, queryBus, createAuthenticationMiddleware());
-        adminController.configureRoutes(router);
+        // Configurar controlador administrativo - temporalmente deshabilitado
+        // com.auth.microservice.infrastructure.adapter.web.AdminController adminController = 
+        //     new com.auth.microservice.infrastructure.adapter.web.AdminController(commandBus, queryBus, createAuthenticationMiddleware());
+        // adminController.configureRoutes(router);
         
         logger.info("All controllers configured successfully");
     }

@@ -1,0 +1,196 @@
+groups:
+  - name: auth_microservice_alerts
+    rules:
+      # High authentication failure rate
+      - alert: HighAuthenticationFailureRate
+        expr: rate(auth_authentication_failure_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: auth-microservice
+        annotations:
+          summary: "High authentication failure rate detected"
+          description: "Authentication failure rate is {{ $value }} failures per second for the last 5 minutes"
+      
+      # Suspicious login attempts from single country
+      - alert: SuspiciousLoginsByCountry
+        expr: rate(auth_authentication_by_country_total{result="failure"}[10m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: auth-microservice
+        annotations:
+          summary: "Suspicious login attempts from {{ $labels.country }}"
+          description: "High failure rate ({{ $value }}/sec) from country {{ $labels.country }} in the last 10 minutes"
+      
+      # Rate limiting frequently triggered
+      - alert: FrequentRateLimiting
+        expr: rate(auth_ratelimit_exceeded_total[5m]) > 0.02
+        for: 3m
+        labels:
+          severity: warning
+          service: auth-microservice
+        annotations:
+          summary: "Frequent rate limiting detected"
+          description: "Rate limiting is being triggered {{ $value }} times per second"
+      
+      # High error rate
+      - alert: HighErrorRate
+        expr: rate(auth_error_total[5m]) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+          service: auth-microservice
+        annotations:
+          summary: "High application error rate"
+          description: "Application error rate is {{ $value }} errors per second"
+      
+      # Service down
+      - alert: ServiceDown
+        expr: up{job="auth-microservice"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: auth-microservice
+        annotations:
+          summary: "Auth microservice is down"
+          description: "Auth microservice has been down for more than 1 minute"
+      
+      # High response time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(auth_api_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-microservice
+        annotations:
+          summary: "High API response time"
+          description: "95th percentile response time is {{ $value }}s"
+      
+      # Database connection issues
+      - alert: DatabaseConnectionIssues
+        expr: rate(auth_database_connection_total[5m]) < 0.1
+        for: 3m
+        labels:
+          severity: critical
+          service: auth-microservice
+        annotations:
+          summary: "Database connection issues"
+          description: "Low database connection rate: {{ $value }} connections per second"
+      
+      # Low cache hit rate
+      - alert: LowCacheHitRate
+        expr: (rate(auth_cache_hit_total[10m]) / (rate(auth_cache_hit_total[10m]) + rate(auth_cache_miss_total[10m]))) < 0.7
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-microservice
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is {{ $value | humanizePercentage }}"
+      
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"}) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-microservice
+        annotations:
+          summary: "High JVM memory usage"
+          description: "JVM heap memory usage is {{ $value | humanizePercentage }}"
+      
+      # Too many active sessions
+      - alert: TooManyActiveSessions
+        expr: auth_session_active > 10000
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-microservice
+        annotations:
+          summary: "High number of active sessions"
+          description: "Number of active sessions is {{ $value }}"
+
+  - name: security_alerts
+    rules:
+      # Brute force attack detection
+      - alert: BruteForceAttack
+        expr: rate(auth_authentication_failure_total[1m]) > 1
+        for: 30s
+        labels:
+          severity: critical
+          service: auth-microservice
+          alert_type: security
+        annotations:
+          summary: "Potential brute force attack detected"
+          description: "Authentication failure rate is {{ $value }} failures per second, indicating possible brute force attack"
+      
+      # Suspicious activity spike
+      - alert: SuspiciousActivitySpike
+        expr: rate(auth_security_suspicious_activity_total[5m]) > 0.01
+        for: 1m
+        labels:
+          severity: critical
+          service: auth-microservice
+          alert_type: security
+        annotations:
+          summary: "Suspicious activity spike detected"
+          description: "Suspicious activity rate is {{ $value }} events per second from {{ $labels.country }}"
+      
+      # Authorization failures spike
+      - alert: AuthorizationFailuresSpike
+        expr: rate(auth_authorization_failure_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          service: auth-microservice
+          alert_type: security
+        annotations:
+          summary: "High authorization failure rate"
+          description: "Authorization failure rate is {{ $value }} failures per second"
+
+  - name: infrastructure_alerts
+    rules:
+      # PostgreSQL down
+      - alert: PostgreSQLDown
+        expr: up{job="postgres-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database has been down for more than 1 minute"
+      
+      # Redis down
+      - alert: RedisDown
+        expr: up{job="redis-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: redis
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache has been down for more than 1 minute"
+      
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% on {{ $labels.instance }}"
+      
+      # High disk usage
+      - alert: HighDiskUsage
+        expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"

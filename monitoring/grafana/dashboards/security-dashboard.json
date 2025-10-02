@@ -1,0 +1,220 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Auth Microservice - Security Dashboard",
+    "tags": ["auth", "security", "monitoring"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "10s",
+    "time": {
+      "from": "now-30m",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Failed Login Attempts by Country (Last 30 min)",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sum by (country) (increase(auth_authentication_by_country_total{result=\"failure\"}[30m]))",
+            "legendFormat": "{{country}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Suspicious Activity by Country",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(auth_security_suspicious_activity_total[5m])",
+            "legendFormat": "{{country}} - {{activity_type}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "lineWidth": 2,
+              "fillOpacity": 20,
+              "gradientMode": "opacity"
+            },
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 16, "x": 8, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Authentication Failure Rate by Country",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(auth_authentication_by_country_total{result=\"failure\"}[5m])",
+            "legendFormat": "{{country}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "fillOpacity": 10
+            },
+            "color": {
+              "mode": "continuous-GrYlRd"
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Rate Limiting Events by Country",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(auth_ratelimit_exceeded_total[5m])",
+            "legendFormat": "{{country}} - {{endpoint}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": {
+              "drawStyle": "bars",
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "fillOpacity": 80
+            },
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Top Countries by Failed Logins (Last Hour)",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "topk(10, sum by (country) (increase(auth_authentication_by_country_total{result=\"failure\"}[1h])))",
+            "legendFormat": "{{country}}",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "displayMode": "auto"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Value"},
+              "properties": [
+                {
+                  "id": "displayName",
+                  "value": "Failed Attempts"
+                },
+                {
+                  "id": "custom.displayMode",
+                  "value": "color-background"
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "continuous-GrYlRd"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 16}
+      },
+      {
+        "id": 6,
+        "title": "Authorization Failures",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(auth_authorization_failure_total[5m])",
+            "legendFormat": "{{resource}}.{{action}} - {{reason}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "fillOpacity": 10
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 16, "x": 8, "y": 16}
+      },
+      {
+        "id": 7,
+        "title": "Security Events Timeline",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{job=\"auth-microservice\"} |= \"SECURITY\" | json",
+            "legendFormat": ""
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "showLabels": false,
+              "showCommonLabels": false,
+              "showTime": true,
+              "wrapLogMessage": true,
+              "prettifyLogMessage": true,
+              "enableLogDetails": true,
+              "dedupStrategy": "none",
+              "sortOrder": "Descending"
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24}
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "name": "Security Alerts",
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "ALERTS{alertname=~\".*Security.*|.*Brute.*|.*Suspicious.*\"}",
+          "iconColor": "red",
+          "titleFormat": "{{alertname}}",
+          "textFormat": "{{description}}"
+        }
+      ]
+    }
+  }
+}

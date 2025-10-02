@@ -135,11 +135,13 @@ services:
 
   # Prometheus (for monitoring - task 8)
   prometheus:
+    container_name: auth_prometheus
     image: prom/prometheus:latest
     ports:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -147,6 +149,27 @@ services:
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--storage.tsdb.retention.time=30d'
+    networks:
+      - auth-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+  # AlertManager (for monitoring - task 8)
+  alertmanager:
+    container_name: auth_alertmanager
+    image: prom/alertmanager:latest
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
     networks:
       - auth-network
     restart: unless-stopped
@@ -155,26 +178,88 @@ services:
 
   # Grafana (for monitoring - task 8)
   grafana:
+    container_name: auth_grafana
     image: grafana/grafana:latest
     ports:
       - "3000:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: admin
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - auth-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    depends_on:
+      - prometheus
+
+  # Node Exporter (for system metrics - task 8)
+  node-exporter:
+    container_name: auth_node_exporter
+    image: prom/node-exporter:latest
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     networks:
       - auth-network
     restart: unless-stopped
     profiles:
       - monitoring
 
+  # PostgreSQL Exporter (for database metrics - task 8)
+  postgres-exporter:
+    container_name: auth_postgres_exporter
+    image: prometheuscommunity/postgres-exporter:latest
+    ports:
+      - "9187:9187"
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${DB_USERNAME:-auth_user}:${DB_PASSWORD:-dev_password_123}@postgres:5432/${DB_NAME:-auth_microservice_dev}?sslmode=disable"
+    networks:
+      - auth-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    depends_on:
+      - postgres
+
+  # Redis Exporter (for cache metrics - task 8)
+  redis-exporter:
+    container_name: auth_redis_exporter
+    image: oliver006/redis_exporter:latest
+    ports:
+      - "9121:9121"
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-dev_redis_password}"
+    networks:
+      - auth-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    depends_on:
+      - redis
+
 volumes:
   postgres_data:
   redis_data:
   prometheus_data:
   grafana_data:
+  alertmanager_data:
 
 networks:
   auth-network:
