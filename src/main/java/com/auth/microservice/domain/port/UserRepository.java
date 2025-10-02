@@ -55,6 +55,15 @@ public interface UserRepository extends Repository<User, UUID> {
     Future<List<User>> findActiveUsers(Pagination pagination);
     
     /**
+     * Search users by name or email with pagination
+     * @param searchTerm Search term to match against first name, last name, or email
+     * @param pagination Pagination parameters
+     * @param includeInactive Whether to include inactive users in search
+     * @return Future containing paginated list of matching users
+     */
+    Future<List<User>> searchUsers(String searchTerm, Pagination pagination, boolean includeInactive);
+    
+    /**
      * Check if email already exists
      * @param email Email to check
      * @return Future containing boolean result

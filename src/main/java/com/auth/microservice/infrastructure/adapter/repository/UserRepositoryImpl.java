@@ -82,6 +82,16 @@ public class UserRepositoryImpl extends AbstractRepository<User, UUID> implement
         SELECT 1 FROM users WHERE username = $1 LIMIT 1
         """;
     
+    private static final String SEARCH_USERS_SQL = """
+        SELECT * FROM users 
+        WHERE (LOWER(first_name) LIKE LOWER($1) OR LOWER(last_name) LIKE LOWER($1) OR LOWER(email) LIKE LOWER($1))
+        %s
+        ORDER BY %s %s
+        LIMIT $2 OFFSET $3
+        """;
+    
+    private static final String SEARCH_ACTIVE_FILTER = "AND is_active = true";
+    
     public UserRepositoryImpl(Pool pool, TransactionManager transactionManager) {
         super(pool, transactionManager);
     }
@@ -240,6 +250,20 @@ public class UserRepositoryImpl extends AbstractRepository<User, UUID> implement
         return executeQuery(EXISTS_BY_USERNAME_SQL, Tuple.of(username))
             .map(rows -> rows.size() > 0)
             .onFailure(error -> logger.error("Failed to check if username exists: {}", username, error));
+    }
+    
+    @Override
+    public Future<List<User>> searchUsers(String searchTerm, Pagination pagination, boolean includeInactive) {
+        String sortBy = SqlUtils.sanitizeColumnName(pagination.getSortBy());
+        String direction = SqlUtils.validateSortDirection(pagination.getDirection().name());
+        String activeFilter = includeInactive ? "" : SEARCH_ACTIVE_FILTER;
+        String sql = String.format(SEARCH_USERS_SQL, activeFilter, sortBy, direction);
+        
+        String searchPattern = "%" + searchTerm + "%";
+        
+        return executeQuery(sql, Tuple.of(searchPattern, pagination.getSize(), pagination.getOffset()))
+            .map(this::mapRowsToEntities)
+            .onFailure(error -> logger.error("Failed to search users with term: {}", searchTerm, error));
     }
     
     /**
