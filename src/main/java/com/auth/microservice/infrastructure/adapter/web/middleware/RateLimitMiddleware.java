@@ -1,6 +1,7 @@
 package com.auth.microservice.infrastructure.adapter.web.middleware;
 
 import com.auth.microservice.domain.service.RateLimitService;
+import com.auth.microservice.domain.service.RateLimitService.RateLimitType;
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
@@ -43,21 +44,26 @@ public class RateLimitMiddleware implements Handler<RoutingContext> {
         // Auditoría del request
         auditRequest(context, clientIp, userContext);
         
-        rateLimitService.checkRateLimit(identifier, endpoint, maxAttempts, windowMinutes)
-            .onSuccess(allowed -> {
-                if (allowed) {
+        // Make variables effectively final for lambda usage
+        final String finalIdentifier = identifier;
+        final String finalEndpoint = endpoint;
+        final String finalClientIp = clientIp;
+        
+        rateLimitService.checkRateLimit(finalIdentifier, finalEndpoint, RateLimitService.RateLimitType.BY_IP)
+            .onSuccess(result -> {
+                if (result.allowed()) {
                     logger.debug("Rate limit check passed for {} on endpoint {} from IP: {}", 
-                        identifier, endpoint, clientIp);
+                        finalIdentifier, finalEndpoint, finalClientIp);
                     context.next();
                 } else {
                     logger.warn("Rate limit exceeded for {} on endpoint {} from IP: {}", 
-                        identifier, endpoint, clientIp);
+                        finalIdentifier, finalEndpoint, finalClientIp);
                     sendRateLimitResponse(context);
                 }
             })
             .onFailure(throwable -> {
                 logger.error("Rate limit check failed for {} on endpoint {} from IP: {} - Error: {}", 
-                    identifier, endpoint, clientIp, throwable.getMessage(), throwable);
+                    finalIdentifier, finalEndpoint, finalClientIp, throwable.getMessage(), throwable);
                 // En caso de error, permitir el request pero loggear el problema
                 context.next();
             });

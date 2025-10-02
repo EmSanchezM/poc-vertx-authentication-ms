@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Middleware para autorización RBAC
@@ -53,9 +54,9 @@ public class AuthorizationMiddleware implements Handler<RoutingContext> {
         
         String userId = userContext.getString("userId");
         
-        CheckPermissionQuery query = new CheckPermissionQuery(userId, resource, action);
+        CheckPermissionQuery query = new CheckPermissionQuery(userId, UUID.fromString(userId), resource, action, true);
         
-        queryBus.execute(query)
+        queryBus.<Boolean>send(query)
             .onSuccess(hasPermission -> {
                 if (hasPermission) {
                     logger.debug("User {} authorized for permission: {} from IP: {}", 

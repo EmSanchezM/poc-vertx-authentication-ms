@@ -34,7 +34,7 @@ public class GetSessionByTokenQueryHandler extends SessionQueryHandler implement
             .compose(sessionOpt -> {
                 if (sessionOpt.isEmpty()) {
                     logger.debug("Session not found for token type: {}", query.getTokenType());
-                    return Future.succeededFuture(Optional.empty());
+                    return Future.succeededFuture(Optional.<Session>empty());
                 }
                 
                 Session session = sessionOpt.get();
@@ -42,28 +42,27 @@ public class GetSessionByTokenQueryHandler extends SessionQueryHandler implement
                 // Validate expiration if requested
                 if (query.isValidateExpiration() && session.isExpired()) {
                     logger.debug("Session found but expired for user: {}", session.getUserId());
-                    return Future.succeededFuture(Optional.empty());
+                    return Future.succeededFuture(Optional.<Session>empty());
                 }
                 
                 // Validate session is active
                 if (!session.isActive()) {
                     logger.debug("Session found but inactive for user: {}", session.getUserId());
-                    return Future.succeededFuture(Optional.empty());
+                    return Future.succeededFuture(Optional.<Session>empty());
                 }
                 
                 // Update last used time for valid sessions
                 if (session.isValid()) {
                     session.updateLastUsed();
                     return sessionRepository.save(session)
-                        .map(savedSession -> Optional.of(savedSession));
+                        .compose(savedSession -> Future.succeededFuture(Optional.of(savedSession)));
                 }
                 
                 logger.debug("Session retrieved successfully for user: {}", session.getUserId());
                 return Future.succeededFuture(Optional.of(session));
             })
-            .recover(throwable -> {
+            .onFailure(throwable -> {
                 logger.error("Error retrieving session by token", throwable);
-                return Future.failedFuture(new RuntimeException("Failed to retrieve session by token", throwable));
             });
     }
 

@@ -28,7 +28,7 @@ public class SecurityLoggingMiddleware implements Handler<RoutingContext> {
         String clientIp = getClientIp(context);
         
         // Obtener información de geolocalización de forma asíncrona
-        geoLocationService.getCountryFromIp(clientIp)
+        geoLocationService.getCountryByIp(clientIp)
             .onSuccess(country -> {
                 setupSecurityLogging(context, clientIp, country);
                 context.next();

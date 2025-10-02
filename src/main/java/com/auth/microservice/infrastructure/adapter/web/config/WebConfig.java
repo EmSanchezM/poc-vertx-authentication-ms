@@ -217,4 +217,38 @@ public class WebConfig {
         
         logger.info("Security headers configured");
     }
+    
+    /**
+     * Configura las rutas de autenticación con middleware apropiado
+     */
+    public void configureAuthRoutes(Router router, com.auth.microservice.infrastructure.adapter.web.AuthController authController) {
+        // Subrouter para rutas de autenticación
+        Router authRouter = Router.router(vertx);
+        
+        // POST /auth/login - con rate limiting específico para login
+        authRouter.post("/login")
+            .handler(createLoginRateLimitMiddleware())
+            .handler(authController::login);
+        
+        // POST /auth/register - con rate limiting específico para registro
+        authRouter.post("/register")
+            .handler(createRegistrationRateLimitMiddleware())
+            .handler(authController::register);
+        
+        // POST /auth/refresh - con rate limiting general
+        authRouter.post("/refresh")
+            .handler(createGeneralRateLimitMiddleware("refresh"))
+            .handler(authController::refresh);
+        
+        // POST /auth/logout - requiere autenticación
+        authRouter.post("/logout")
+            .handler(createAuthenticationMiddleware())
+            .handler(createGeneralRateLimitMiddleware("logout"))
+            .handler(authController::logout);
+        
+        // Montar el subrouter en /auth
+        router.mountSubRouter("/auth", authRouter);
+        
+        logger.info("Authentication routes configured with appropriate middleware");
+    }
 }

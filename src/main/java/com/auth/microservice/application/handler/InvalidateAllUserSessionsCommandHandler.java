@@ -64,12 +64,12 @@ public class InvalidateAllUserSessionsCommandHandler implements CommandHandler<I
                     })
                     .toList();
                 
+                final int sessionCount = sessionsToInvalidate.size();
                 return Future.all(invalidationFutures)
                     .map(compositeFuture -> {
-                        int invalidatedCount = sessionsToInvalidate.size();
                         logger.info("Successfully invalidated {} sessions for user: {}", 
-                            invalidatedCount, command.getTargetUserId());
-                        return invalidatedCount;
+                            sessionCount, command.getTargetUserId());
+                        return sessionCount;
                     });
             })
             .recover(throwable -> {
@@ -128,7 +128,7 @@ public class InvalidateAllUserSessionsCommandHandler implements CommandHandler<I
      */
     private void logSecurityEventForAllSessions(InvalidateAllUserSessionsCommand command) {
         if (command.getIpAddress() != null) {
-            geoLocationService.getCountryFromIp(command.getIpAddress())
+            geoLocationService.getCountryByIp(command.getIpAddress())
                 .onSuccess(country -> {
                     logger.warn("Security Event - All sessions invalidated: userId={}, targetUserId={}, reason='{}', " +
                                "ipAddress={}, country={}, excludeCurrentSession={}", 

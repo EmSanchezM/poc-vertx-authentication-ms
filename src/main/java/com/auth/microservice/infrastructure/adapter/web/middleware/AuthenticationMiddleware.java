@@ -39,40 +39,36 @@ public class AuthenticationMiddleware implements Handler<RoutingContext> {
         
         String token = authHeader.substring(BEARER_PREFIX.length());
         
-        jwtService.validateToken(token)
-            .onSuccess(claims -> {
-                // Extraer información del usuario del token
-                String userId = claims.getSubject();
-                String email = claims.get("email", String.class);
-                
-                // Crear contexto de usuario
-                JsonObject userContext = new JsonObject()
-                    .put("userId", userId)
-                    .put("email", email)
-                    .put("token", token);
-                
-                // Agregar información adicional si está disponible
-                if (claims.containsKey("roles")) {
-                    userContext.put("roles", claims.get("roles"));
-                }
-                
-                context.put(USER_CONTEXT_KEY, userContext);
-                
-                logger.debug("User authenticated successfully: {} from IP: {}", 
-                    email, context.request().remoteAddress().host());
-                
-                context.next();
-            })
-            .onFailure(throwable -> {
-                logger.warn("Token validation failed from IP: {} - Error: {}", 
-                    context.request().remoteAddress().host(), throwable.getMessage());
-                
-                if (throwable instanceof InvalidTokenException) {
-                    sendUnauthorizedResponse(context, "Invalid or expired token");
-                } else {
-                    sendUnauthorizedResponse(context, "Authentication failed");
-                }
-            });
+        JWTService.TokenValidationResult validationResult = jwtService.validateToken(token);
+        
+        if (validationResult.isValid()) {
+            // Extraer información del usuario del token
+            String userId = (String) validationResult.claims().get("sub");
+            String email = (String) validationResult.claims().get("email");
+            
+            // Crear contexto de usuario
+            JsonObject userContext = new JsonObject()
+                .put("userId", userId)
+                .put("email", email)
+                .put("token", token);
+            
+            // Agregar información adicional si está disponible
+            if (validationResult.claims().containsKey("roles")) {
+                userContext.put("roles", validationResult.claims().get("roles"));
+            }
+            
+            context.put(USER_CONTEXT_KEY, userContext);
+            
+            logger.debug("User authenticated successfully: {} from IP: {}", 
+                email, context.request().remoteAddress().host());
+            
+            context.next();
+        } else {
+            logger.warn("Token validation failed from IP: {} - Error: {}", 
+                context.request().remoteAddress().host(), validationResult.message());
+            
+            sendUnauthorizedResponse(context, "Invalid or expired token");
+        }
     }
     
     private void sendUnauthorizedResponse(RoutingContext context, String message) {

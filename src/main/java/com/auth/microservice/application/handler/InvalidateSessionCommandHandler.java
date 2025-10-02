@@ -68,14 +68,7 @@ public class InvalidateSessionCommandHandler implements CommandHandler<Invalidat
             .compose(savedSession -> {
                 logger.info("Session invalidated successfully for user: {} from IP: {}", 
                     command.getUserId(), command.getIpAddress());
-                return Future.succeededFuture();
-            })
-            .recover(throwable -> {
-                if (throwable instanceof SessionNotFoundException || throwable instanceof SecurityException) {
-                    return Future.failedFuture(throwable);
-                }
-                logger.error("Error invalidating session for user: " + command.getUserId(), throwable);
-                return Future.failedFuture(new RuntimeException("Failed to invalidate session", throwable));
+                return Future.<Void>succeededFuture(null);
             });
     }
 
@@ -86,7 +79,7 @@ public class InvalidateSessionCommandHandler implements CommandHandler<Invalidat
      */
     private void logSecurityEvent(InvalidateSessionCommand command, Session session) {
         if (command.getIpAddress() != null) {
-            geoLocationService.getCountryFromIp(command.getIpAddress())
+            geoLocationService.getCountryByIp(command.getIpAddress())
                 .onSuccess(country -> {
                     logger.info("Security Event - Session invalidated: userId={}, sessionId={}, reason='{}', " +
                                "ipAddress={}, country={}, userAgent={}", 
