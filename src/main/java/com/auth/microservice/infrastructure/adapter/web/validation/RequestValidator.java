@@ -173,6 +173,77 @@ public class RequestValidator {
     }
     
     /**
+     * Valida request de creación de usuario (admin)
+     */
+    public static ValidationResult validateCreateUserRequest(JsonObject body) {
+        List<String> errors = new ArrayList<>();
+        
+        // Validar username
+        String username = body.getString("username");
+        if (username == null || username.trim().isEmpty()) {
+            errors.add("Username is required");
+        } else if (username.length() < 3 || username.length() > 50) {
+            errors.add("Username must be between 3 and 50 characters");
+        }
+        
+        // Validar email
+        String email = body.getString("email");
+        if (email == null || email.trim().isEmpty()) {
+            errors.add("Email is required");
+        } else if (!isValidEmail(email)) {
+            errors.add("Email format is invalid");
+        }
+        
+        // Validar firstName
+        String firstName = body.getString("firstName");
+        if (firstName == null || firstName.trim().isEmpty()) {
+            errors.add("First name is required");
+        } else if (firstName.length() > 100) {
+            errors.add("First name must not exceed 100 characters");
+        }
+        
+        // Validar lastName
+        String lastName = body.getString("lastName");
+        if (lastName == null || lastName.trim().isEmpty()) {
+            errors.add("Last name is required");
+        } else if (lastName.length() > 100) {
+            errors.add("Last name must not exceed 100 characters");
+        }
+        
+        return errors.isEmpty() ? ValidationResult.success(body) : ValidationResult.error(errors);
+    }
+    
+    /**
+     * Valida request de actualización de usuario (admin)
+     */
+    public static ValidationResult validateUpdateUserRequest(JsonObject body) {
+        List<String> errors = new ArrayList<>();
+        
+        // firstName es opcional, pero si se proporciona debe ser válido
+        String firstName = body.getString("firstName");
+        if (firstName != null && (firstName.trim().isEmpty() || firstName.length() > 100)) {
+            errors.add("First name must not be empty or exceed 100 characters");
+        }
+        
+        // lastName es opcional, pero si se proporciona debe ser válido
+        String lastName = body.getString("lastName");
+        if (lastName != null && (lastName.trim().isEmpty() || lastName.length() > 100)) {
+            errors.add("Last name must not be empty or exceed 100 characters");
+        }
+        
+        // isActive es opcional
+        Boolean isActive = body.getBoolean("isActive");
+        // No validation needed for boolean, just check if present
+        
+        // Verificar que al menos un campo esté presente
+        if (firstName == null && lastName == null && isActive == null) {
+            errors.add("At least one field (firstName, lastName, or isActive) must be provided");
+        }
+        
+        return errors.isEmpty() ? ValidationResult.success(body) : ValidationResult.error(errors);
+    }
+    
+    /**
      * Valida parámetros de paginación
      */
     public static ValidationResult validatePaginationParams(RoutingContext context) {
