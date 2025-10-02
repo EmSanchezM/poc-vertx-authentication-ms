@@ -1,5 +1,6 @@
 package com.auth.microservice.infrastructure.adapter.web.config;
 
+import com.auth.microservice.common.cqrs.CommandBus;
 import com.auth.microservice.common.cqrs.QueryBus;
 import com.auth.microservice.domain.service.GeoLocationService;
 import com.auth.microservice.domain.service.JWTService;
@@ -26,14 +27,16 @@ public class WebConfig {
     
     private final Vertx vertx;
     private final JWTService jwtService;
+    private final CommandBus commandBus;
     private final QueryBus queryBus;
     private final RateLimitService rateLimitService;
     private final GeoLocationService geoLocationService;
     
-    public WebConfig(Vertx vertx, JWTService jwtService, QueryBus queryBus, 
+    public WebConfig(Vertx vertx, JWTService jwtService, CommandBus commandBus, QueryBus queryBus, 
                     RateLimitService rateLimitService, GeoLocationService geoLocationService) {
         this.vertx = vertx;
         this.jwtService = jwtService;
+        this.commandBus = commandBus;
         this.queryBus = queryBus;
         this.rateLimitService = rateLimitService;
         this.geoLocationService = geoLocationService;
@@ -47,6 +50,18 @@ public class WebConfig {
         
         // Middleware globales (orden importa)
         configureGlobalMiddleware(router);
+        
+        // Configurar headers de seguridad
+        configureSecurityHeaders(router);
+        
+        // Configurar rutas de salud y métricas
+        configureHealthRoutes(router);
+        
+        // Configurar todos los controladores
+        configureControllers(router);
+        
+        // Configurar manejo de errores (debe ir al final)
+        configureErrorHandlers(router);
         
         logger.info("Web configuration completed successfully");
         return router;
@@ -219,36 +234,26 @@ public class WebConfig {
     }
     
     /**
-     * Configura las rutas de autenticación con middleware apropiado
+     * Configura todos los controladores de la aplicación
      */
-    public void configureAuthRoutes(Router router, com.auth.microservice.infrastructure.adapter.web.AuthController authController) {
-        // Subrouter para rutas de autenticación
-        Router authRouter = Router.router(vertx);
+    public void configureControllers(Router router) {
+        // Configurar controlador de autenticación
+        com.auth.microservice.infrastructure.adapter.web.AuthController authController = 
+            new com.auth.microservice.infrastructure.adapter.web.AuthController(commandBus, queryBus, rateLimitService);
+        authController.configureRoutes(router);
         
-        // POST /auth/login - con rate limiting específico para login
-        authRouter.post("/login")
-            .handler(createLoginRateLimitMiddleware())
-            .handler(authController::login);
+        // Configurar controlador de usuarios
+        com.auth.microservice.infrastructure.adapter.web.UserController userController = 
+            new com.auth.microservice.infrastructure.adapter.web.UserController(commandBus, queryBus, createAuthenticationMiddleware());
+        userController.configureRoutes(router);
         
-        // POST /auth/register - con rate limiting específico para registro
-        authRouter.post("/register")
-            .handler(createRegistrationRateLimitMiddleware())
-            .handler(authController::register);
+        // Configurar controlador administrativo
+        com.auth.microservice.infrastructure.adapter.web.AdminController adminController = 
+            new com.auth.microservice.infrastructure.adapter.web.AdminController(commandBus, queryBus, createAuthenticationMiddleware());
+        adminController.configureRoutes(router);
         
-        // POST /auth/refresh - con rate limiting general
-        authRouter.post("/refresh")
-            .handler(createGeneralRateLimitMiddleware("refresh"))
-            .handler(authController::refresh);
-        
-        // POST /auth/logout - requiere autenticación
-        authRouter.post("/logout")
-            .handler(createAuthenticationMiddleware())
-            .handler(createGeneralRateLimitMiddleware("logout"))
-            .handler(authController::logout);
-        
-        // Montar el subrouter en /auth
-        router.mountSubRouter("/auth", authRouter);
-        
-        logger.info("Authentication routes configured with appropriate middleware");
+        logger.info("All controllers configured successfully");
     }
+    
+
 }

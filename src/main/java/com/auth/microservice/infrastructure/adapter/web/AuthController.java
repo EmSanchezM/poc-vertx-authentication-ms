@@ -15,6 +15,7 @@ import com.auth.microservice.domain.service.JWTService;
 import com.auth.microservice.domain.service.RateLimitService;
 import com.auth.microservice.infrastructure.adapter.web.middleware.SecurityLoggingMiddleware;
 import com.auth.microservice.infrastructure.adapter.web.response.ResponseUtil;
+import com.auth.microservice.infrastructure.adapter.web.util.RequestUtil;
 import com.auth.microservice.infrastructure.adapter.web.validation.RequestValidator;
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonArray;
@@ -76,7 +77,7 @@ public class AuthController {
      * }
      */
     public void login(RoutingContext context) {
-        logger.debug("Processing login request from IP: {}", getClientIp(context));
+        logger.debug("Processing login request from IP: {}", RequestUtil.getClientIp(context));
         
         // Validate JSON body
         RequestValidator.ValidationResult bodyValidation = RequestValidator.validateJsonBody(context);
@@ -98,8 +99,8 @@ public class AuthController {
         
         String email = requestBody.getString("email");
         String password = requestBody.getString("password");
-        String clientIp = getClientIp(context);
-        String userAgent = context.request().getHeader("User-Agent");
+        String clientIp = RequestUtil.getClientIp(context);
+        String userAgent = RequestUtil.getUserAgent(context);
         
         // Create authentication command
         AuthenticateCommand command = new AuthenticateCommand(email, password, clientIp, userAgent);
@@ -133,7 +134,7 @@ public class AuthController {
      * }
      */
     public void register(RoutingContext context) {
-        logger.debug("Processing registration request from IP: {}", getClientIp(context));
+        logger.debug("Processing registration request from IP: {}", RequestUtil.getClientIp(context));
         
         // Validate JSON body
         RequestValidator.ValidationResult bodyValidation = RequestValidator.validateJsonBody(context);
@@ -155,8 +156,8 @@ public class AuthController {
         String password = requestBody.getString("password");
         String firstName = requestBody.getString("firstName");
         String lastName = requestBody.getString("lastName");
-        String clientIp = getClientIp(context);
-        String userAgent = context.request().getHeader("User-Agent");
+        String clientIp = RequestUtil.getClientIp(context);
+        String userAgent = RequestUtil.getUserAgent(context);
         
         // Create registration command with default user role
         RegisterUserCommand command = new RegisterUserCommand(
@@ -196,7 +197,7 @@ public class AuthController {
      * }
      */
     public void refresh(RoutingContext context) {
-        logger.debug("Processing token refresh request from IP: {}", getClientIp(context));
+        logger.debug("Processing token refresh request from IP: {}", RequestUtil.getClientIp(context));
         
         // Validate JSON body
         RequestValidator.ValidationResult bodyValidation = RequestValidator.validateJsonBody(context);
@@ -215,8 +216,8 @@ public class AuthController {
         }
         
         String refreshToken = requestBody.getString("refreshToken");
-        String clientIp = getClientIp(context);
-        String userAgent = context.request().getHeader("User-Agent");
+        String clientIp = RequestUtil.getClientIp(context);
+        String userAgent = RequestUtil.getUserAgent(context);
         
         // Create refresh token command
         RefreshTokenCommand command = new RefreshTokenCommand(refreshToken, clientIp, userAgent);
@@ -239,7 +240,7 @@ public class AuthController {
      * Requires Authorization header with Bearer token.
      */
     public void logout(RoutingContext context) {
-        logger.debug("Processing logout request from IP: {}", getClientIp(context));
+        logger.debug("Processing logout request from IP: {}", RequestUtil.getClientIp(context));
         
         // Extract token from Authorization header
         String authHeader = context.request().getHeader("Authorization");
@@ -248,8 +249,8 @@ public class AuthController {
             return;
         }
         
-        String token = authHeader.substring(7); // Remove "Bearer " prefix
-        String clientIp = getClientIp(context);
+        String token = RequestUtil.getBearerToken(context);
+        String clientIp = RequestUtil.getClientIp(context);
         
         // Get user context from middleware (should be set by AuthenticationMiddleware)
         JsonObject userContext = context.get("user");
@@ -301,7 +302,7 @@ public class AuthController {
         
         ResponseUtil.sendSuccess(context, authResponse);
         
-        logger.info("User {} successfully authenticated from IP: {}", email, getClientIp(context));
+        logger.info("User {} successfully authenticated from IP: {}", email, RequestUtil.getClientIp(context));
     }
     
     private void handleSuccessfulRegistration(RoutingContext context, RegistrationResult result) {
@@ -319,7 +320,7 @@ public class AuthController {
         
         ResponseUtil.sendCreated(context, userInfo);
         
-        logger.info("User {} successfully registered from IP: {}", email, getClientIp(context));
+        logger.info("User {} successfully registered from IP: {}", email, RequestUtil.getClientIp(context));
     }
     
     private void handleSuccessfulTokenRefresh(RoutingContext context, JWTService.TokenPair tokenPair) {
@@ -331,14 +332,14 @@ public class AuthController {
         
         ResponseUtil.sendSuccess(context, refreshResponse);
         
-        logger.info("Token successfully refreshed from IP: {}", getClientIp(context));
+        logger.info("Token successfully refreshed from IP: {}", RequestUtil.getClientIp(context));
     }
     
     private void handleSuccessfulLogout(RoutingContext context, String userId) {
         JsonObject logoutResponse = ResponseUtil.createMessageResponse("Successfully logged out");
         ResponseUtil.sendSuccess(context, logoutResponse);
         
-        logger.info("User {} successfully logged out from IP: {}", userId, getClientIp(context));
+        logger.info("User {} successfully logged out from IP: {}", userId, RequestUtil.getClientIp(context));
     }
     
     // Error handlers
@@ -348,7 +349,7 @@ public class AuthController {
         ResponseUtil.sendUnauthorized(context, "Invalid email or password");
         
         logger.warn("Failed login attempt for email: {} from IP: {} - Reason: {}", 
-            email, getClientIp(context), message);
+            email, RequestUtil.getClientIp(context), message);
     }
     
     private void handleAuthenticationError(RoutingContext context, String email, Throwable throwable) {
@@ -367,7 +368,7 @@ public class AuthController {
         ResponseUtil.sendError(context, 400, "REGISTRATION_FAILED", message);
         
         logger.warn("Failed registration attempt for email: {} from IP: {} - Reason: {}", 
-            email, getClientIp(context), message);
+            email, RequestUtil.getClientIp(context), message);
     }
     
     private void handleRegistrationError(RoutingContext context, String email, Throwable throwable) {
@@ -379,7 +380,7 @@ public class AuthController {
             ResponseUtil.sendInternalError(context, "Registration service temporarily unavailable");
         }
         
-        logger.error("Registration error for email: {} from IP: {}", email, getClientIp(context), throwable);
+        logger.error("Registration error for email: {} from IP: {}", email, RequestUtil.getClientIp(context), throwable);
     }
     
     private void handleTokenRefreshError(RoutingContext context, Throwable throwable) {
@@ -403,21 +404,6 @@ public class AuthController {
     }
     
     // Utility methods
-    
-    private String getClientIp(RoutingContext context) {
-        // Check proxy headers first
-        String xForwardedFor = context.request().getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-            return xForwardedFor.split(",")[0].trim();
-        }
-        
-        String xRealIp = context.request().getHeader("X-Real-IP");
-        if (xRealIp != null && !xRealIp.isEmpty()) {
-            return xRealIp;
-        }
-        
-        return context.request().remoteAddress().host();
-    }
     
     private JsonArray createRolesArray(Set<com.auth.microservice.domain.model.Role> roles) {
         JsonArray rolesArray = new JsonArray();

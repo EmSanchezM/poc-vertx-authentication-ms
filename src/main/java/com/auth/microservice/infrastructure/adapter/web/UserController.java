@@ -17,6 +17,7 @@ import com.auth.microservice.domain.port.Pagination;
 import com.auth.microservice.infrastructure.adapter.web.middleware.AuthenticationMiddleware;
 import com.auth.microservice.infrastructure.adapter.web.middleware.AuthorizationMiddleware;
 import com.auth.microservice.infrastructure.adapter.web.response.ResponseUtil;
+import com.auth.microservice.infrastructure.adapter.web.util.RequestUtil;
 import com.auth.microservice.infrastructure.adapter.web.validation.RequestValidator;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -104,7 +105,7 @@ public class UserController {
      */
     public void getUserProfile(RoutingContext context) {
         String userId = AuthenticationMiddleware.getUserId(context);
-        logger.debug("Processing get profile request for user: {} from IP: {}", userId, getClientIp(context));
+        logger.debug("Processing get profile request for user: {} from IP: {}", userId, RequestUtil.getClientIp(context));
         
         if (userId == null) {
             ResponseUtil.sendUnauthorized(context, "User context not found");
@@ -121,11 +122,11 @@ public class UserController {
                 })
                 .onFailure(throwable -> {
                     logger.error("Get profile query failed for user: {} from IP: {}", 
-                        userId, getClientIp(context), throwable);
+                        userId, RequestUtil.getClientIp(context), throwable);
                     handleProfileRetrievalError(context, throwable);
                 });
         } catch (IllegalArgumentException e) {
-            logger.warn("Invalid user ID format: {} from IP: {}", userId, getClientIp(context));
+            logger.warn("Invalid user ID format: {} from IP: {}", userId, RequestUtil.getClientIp(context));
             ResponseUtil.sendError(context, 400, "INVALID_USER_ID", "Invalid user ID format");
         }
     }
@@ -142,7 +143,7 @@ public class UserController {
      */
     public void updateUserProfile(RoutingContext context) {
         String userId = AuthenticationMiddleware.getUserId(context);
-        logger.debug("Processing update profile request for user: {} from IP: {}", userId, getClientIp(context));
+        logger.debug("Processing update profile request for user: {} from IP: {}", userId, RequestUtil.getClientIp(context));
         
         if (userId == null) {
             ResponseUtil.sendUnauthorized(context, "User context not found");
@@ -165,8 +166,8 @@ public class UserController {
             return;
         }
         
-        String clientIp = getClientIp(context);
-        String userAgent = context.request().getHeader("User-Agent");
+        String clientIp = RequestUtil.getClientIp(context);
+        String userAgent = RequestUtil.getUserAgent(context);
         
         // Extract optional fields
         Optional<String> firstName = Optional.ofNullable(requestBody.getString("firstName"));
@@ -202,7 +203,7 @@ public class UserController {
      */
     public void getUsers(RoutingContext context) {
         String adminUserId = AuthenticationMiddleware.getUserId(context);
-        logger.debug("Processing get users request by admin: {} from IP: {}", adminUserId, getClientIp(context));
+        logger.debug("Processing get users request by admin: {} from IP: {}", adminUserId, RequestUtil.getClientIp(context));
         
         // Validate pagination parameters
         RequestValidator.ValidationResult paginationValidation = RequestValidator.validatePaginationParams(context);
@@ -232,7 +233,7 @@ public class UserController {
             })
             .onFailure(throwable -> {
                 logger.error("Get users query failed for admin: {} from IP: {}", 
-                    adminUserId, getClientIp(context), throwable);
+                    adminUserId, RequestUtil.getClientIp(context), throwable);
                 handleUsersRetrievalError(context, throwable);
             });
     }
@@ -253,7 +254,7 @@ public class UserController {
      */
     public void createUser(RoutingContext context) {
         String adminUserId = AuthenticationMiddleware.getUserId(context);
-        logger.debug("Processing create user request by admin: {} from IP: {}", adminUserId, getClientIp(context));
+        logger.debug("Processing create user request by admin: {} from IP: {}", adminUserId, RequestUtil.getClientIp(context));
         
         // Validate JSON body
         RequestValidator.ValidationResult bodyValidation = RequestValidator.validateJsonBody(context);
@@ -276,8 +277,8 @@ public class UserController {
         String firstName = requestBody.getString("firstName");
         String lastName = requestBody.getString("lastName");
         boolean isActive = requestBody.getBoolean("isActive", true);
-        String clientIp = getClientIp(context);
-        String userAgent = context.request().getHeader("User-Agent");
+        String clientIp = RequestUtil.getClientIp(context);
+        String userAgent = RequestUtil.getUserAgent(context);
         
         // Extract roles (optional, defaults to USER role)
         Set<String> roleNames = Set.of("USER"); // Default role
@@ -302,7 +303,7 @@ public class UserController {
             })
             .onFailure(throwable -> {
                 logger.error("Create user command failed for admin: {} from IP: {}", 
-                    adminUserId, clientIp, throwable);
+                    adminUserId, RequestUtil.getClientIp(context), throwable);
                 handleUserCreationError(context, throwable);
             });
     }
@@ -323,7 +324,7 @@ public class UserController {
         String targetUserId = context.pathParam("userId");
         
         logger.debug("Processing update user request by admin: {} for user: {} from IP: {}", 
-            adminUserId, targetUserId, getClientIp(context));
+            adminUserId, targetUserId, RequestUtil.getClientIp(context));
         
         // Validate target user ID
         RequestValidator.ValidationResult userIdValidation = RequestValidator.validateUuidParam(targetUserId, "User ID");
@@ -348,8 +349,8 @@ public class UserController {
             return;
         }
         
-        String clientIp = getClientIp(context);
-        String userAgent = context.request().getHeader("User-Agent");
+        String clientIp = RequestUtil.getClientIp(context);
+        String userAgent = RequestUtil.getUserAgent(context);
         
         // Extract optional fields
         Optional<String> firstName = Optional.ofNullable(requestBody.getString("firstName"));
@@ -373,7 +374,7 @@ public class UserController {
             })
             .onFailure(throwable -> {
                 logger.error("Update user command failed for admin: {} targeting user: {} from IP: {}", 
-                    adminUserId, targetUserId, clientIp, throwable);
+                    adminUserId, targetUserId, RequestUtil.getClientIp(context), throwable);
                 handleUserUpdateError(context, throwable);
             });
     }
@@ -385,7 +386,7 @@ public class UserController {
         ResponseUtil.sendSuccess(context, profileResponse);
         
         logger.info("User profile retrieved successfully for user: {} from IP: {}", 
-            userProfile.getId(), getClientIp(context));
+            userProfile.getId(), RequestUtil.getClientIp(context));
     }
     
     private void handleSuccessfulProfileUpdate(RoutingContext context, UserUpdateResult result) {
@@ -393,7 +394,7 @@ public class UserController {
         ResponseUtil.sendSuccess(context, userResponse);
         
         logger.info("User profile updated successfully for user: {} from IP: {}", 
-            result.getUser().getId(), getClientIp(context));
+            result.getUser().getId(), RequestUtil.getClientIp(context));
     }
     
     private void handleSuccessfulUsersRetrieval(RoutingContext context, List<User> users, Pagination pagination) {
@@ -408,7 +409,7 @@ public class UserController {
             pagination.getPage(), pagination.getSize(), totalElements);
         
         logger.info("Users list retrieved successfully by admin from IP: {} - {} users returned", 
-            getClientIp(context), users.size());
+            RequestUtil.getClientIp(context), users.size());
     }
     
     private void handleSuccessfulUserCreation(RoutingContext context, UserCreationResult result) {
@@ -417,7 +418,7 @@ public class UserController {
         ResponseUtil.sendCreated(context, userResponse, location);
         
         logger.info("User created successfully: {} by admin from IP: {}", 
-            result.getUser().getEmail().getValue(), getClientIp(context));
+            result.getUser().getEmail().getValue(), RequestUtil.getClientIp(context));
     }
     
     private void handleSuccessfulUserUpdate(RoutingContext context, UserUpdateResult result) {
@@ -425,7 +426,7 @@ public class UserController {
         ResponseUtil.sendSuccess(context, userResponse);
         
         logger.info("User updated successfully: {} by admin from IP: {}", 
-            result.getUser().getId(), getClientIp(context));
+            result.getUser().getId(), RequestUtil.getClientIp(context));
     }
     
     // Error handlers
@@ -443,7 +444,7 @@ public class UserController {
     private void handleFailedProfileUpdate(RoutingContext context, String message) {
         ResponseUtil.sendError(context, 400, "PROFILE_UPDATE_FAILED", message);
         
-        logger.warn("Failed profile update from IP: {} - Reason: {}", getClientIp(context), message);
+        logger.warn("Failed profile update from IP: {} - Reason: {}", RequestUtil.getClientIp(context), message);
     }
     
     private void handleProfileUpdateError(RoutingContext context, Throwable throwable) {
@@ -467,7 +468,7 @@ public class UserController {
     private void handleFailedUserCreation(RoutingContext context, String message) {
         ResponseUtil.sendError(context, 400, "USER_CREATION_FAILED", message);
         
-        logger.warn("Failed user creation from IP: {} - Reason: {}", getClientIp(context), message);
+        logger.warn("Failed user creation from IP: {} - Reason: {}", RequestUtil.getClientIp(context), message);
     }
     
     private void handleUserCreationError(RoutingContext context, Throwable throwable) {
@@ -481,7 +482,7 @@ public class UserController {
     private void handleFailedUserUpdate(RoutingContext context, String message) {
         ResponseUtil.sendError(context, 400, "USER_UPDATE_FAILED", message);
         
-        logger.warn("Failed user update from IP: {} - Reason: {}", getClientIp(context), message);
+        logger.warn("Failed user update from IP: {} - Reason: {}", RequestUtil.getClientIp(context), message);
     }
     
     private void handleUserUpdateError(RoutingContext context, Throwable throwable) {
@@ -495,21 +496,6 @@ public class UserController {
     }
     
     // Utility methods
-    
-    private String getClientIp(RoutingContext context) {
-        // Check proxy headers first
-        String xForwardedFor = context.request().getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-            return xForwardedFor.split(",")[0].trim();
-        }
-        
-        String xRealIp = context.request().getHeader("X-Real-IP");
-        if (xRealIp != null && !xRealIp.isEmpty()) {
-            return xRealIp;
-        }
-        
-        return context.request().remoteAddress().host();
-    }
     
     private JsonObject createUserProfileResponse(UserProfile userProfile) {
         JsonObject response = new JsonObject()
