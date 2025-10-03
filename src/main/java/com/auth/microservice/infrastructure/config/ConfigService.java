@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * Servicio central de configuración que maneja variables de entorno,
@@ -684,6 +685,9 @@ public class ConfigService {
     private void validateConfiguration() {
         List<String> errors = new ArrayList<>();
         
+        // Validar variables de entorno críticas primero
+        validateCriticalEnvironmentVariables(errors);
+        
         // Validar configuración de base de datos
         validateRequired("db.host", errors);
         validateRequired("db.port", errors);
@@ -709,6 +713,342 @@ public class ConfigService {
         }
         
         logger.info("Validación de configuración completada exitosamente");
+    }
+    
+    /**
+     * Valida que las variables de entorno críticas estén disponibles y tengan formato válido.
+     * Falla rápido con mensajes claros si faltan variables esenciales o tienen formato inválido.
+     */
+    private void validateCriticalEnvironmentVariables(List<String> errors) {
+        logger.info("=== 🔍 INICIANDO VALIDACIÓN DE VARIABLES DE ENTORNO CRÍTICAS ===");
+        
+        // Definir variables críticas con sus validaciones específicas
+        Map<String, EnvironmentVariableValidator> criticalVariables = new HashMap<>();
+        
+        // Variables de base de datos
+        criticalVariables.put("DB_HOST", new EnvironmentVariableValidator()
+            .required(true)
+            .description("Host de la base de datos")
+            .validator(this::validateHostname)
+            .errorMessage("DB_HOST debe ser un hostname válido (no puede estar vacío, no debe contener espacios)"));
+            
+        criticalVariables.put("DB_PORT", new EnvironmentVariableValidator()
+            .required(true)
+            .description("Puerto de la base de datos")
+            .validator(this::validatePort)
+            .errorMessage("DB_PORT debe ser un número entre 1 y 65535"));
+            
+        criticalVariables.put("DB_NAME", new EnvironmentVariableValidator()
+            .required(true)
+            .description("Nombre de la base de datos")
+            .validator(this::validateDatabaseName)
+            .errorMessage("DB_NAME debe ser un nombre de base de datos válido (solo letras, números, guiones y guiones bajos)"));
+            
+        criticalVariables.put("DB_USERNAME", new EnvironmentVariableValidator()
+            .required(true)
+            .description("Usuario de la base de datos")
+            .validator(this::validateUsername)
+            .errorMessage("DB_USERNAME no puede estar vacío"));
+            
+        criticalVariables.put("DB_PASSWORD", new EnvironmentVariableValidator()
+            .required(true)
+            .description("Contraseña de la base de datos")
+            .validator(this::validatePassword)
+            .errorMessage("DB_PASSWORD debe tener al menos 1 carácter"));
+        
+        // Variables de Redis (opcionales pero validadas si están presentes)
+        criticalVariables.put("REDIS_HOST", new EnvironmentVariableValidator()
+            .required(false)
+            .description("Host de Redis")
+            .validator(this::validateHostname)
+            .errorMessage("REDIS_HOST debe ser un hostname válido si está definido"));
+            
+        criticalVariables.put("REDIS_PORT", new EnvironmentVariableValidator()
+            .required(false)
+            .description("Puerto de Redis")
+            .validator(this::validatePort)
+            .errorMessage("REDIS_PORT debe ser un número entre 1 y 65535 si está definido"));
+        
+        // Variables de JWT
+        criticalVariables.put("JWT_SECRET", new EnvironmentVariableValidator()
+            .required(true)
+            .description("Secreto para JWT")
+            .validator(this::validateJwtSecretEnv)
+            .errorMessage("JWT_SECRET debe tener al menos 32 caracteres"));
+        
+        // Variables de ambiente
+        criticalVariables.put("APP_ENV", new EnvironmentVariableValidator()
+            .required(false)
+            .description("Ambiente de la aplicación")
+            .validator(this::validateEnvironmentName)
+            .errorMessage("APP_ENV debe ser 'development', 'qa' o 'production' si está definido"));
+        
+        logger.info("📋 Validando {} variables de entorno críticas...", criticalVariables.size());
+        
+        int validatedCount = 0;
+        int errorCount = 0;
+        int warningCount = 0;
+        
+        // Validar cada variable crítica
+        for (Map.Entry<String, EnvironmentVariableValidator> entry : criticalVariables.entrySet()) {
+            String varName = entry.getKey();
+            EnvironmentVariableValidator validator = entry.getValue();
+            
+            logger.debug("🔎 Validando variable: {} ({})", varName, validator.getDescription());
+            
+            String value = System.getenv(varName);
+            boolean isPresent = value != null && !value.trim().isEmpty();
+            
+            if (validator.isRequired()) {
+                if (!isPresent) {
+                    String error = String.format("❌ Variable de entorno CRÍTICA faltante: %s (%s)", 
+                        varName, validator.getDescription());
+                    logger.error(error);
+                    errors.add(error);
+                    errorCount++;
+                    continue;
+                }
+            } else if (!isPresent) {
+                logger.debug("⏭️ Variable opcional '{}' no definida, omitiendo validación", varName);
+                continue;
+            }
+            
+            // Validar formato si la variable está presente
+            try {
+                boolean isValid = validator.getValidator().apply(value);
+                if (!isValid) {
+                    String error = String.format("❌ Variable de entorno con formato INVÁLIDO: %s = '%s' - %s", 
+                        varName, 
+                        isSensitiveKey(varName.toLowerCase()) ? "***" : value,
+                        validator.getErrorMessage());
+                    logger.error(error);
+                    errors.add(error);
+                    errorCount++;
+                } else {
+                    String logValue = isSensitiveKey(varName.toLowerCase()) ? "***" : value;
+                    logger.info("✅ Variable '{}' válida: {} [{}]", varName, logValue, validator.getDescription());
+                    validatedCount++;
+                }
+            } catch (Exception e) {
+                String error = String.format("❌ Error validando variable %s: %s", varName, e.getMessage());
+                logger.error(error, e);
+                errors.add(error);
+                errorCount++;
+            }
+        }
+        
+        // Verificar variables adicionales que podrían estar mal configuradas
+        validateCommonMisconfigurations(errors);
+        
+        // Registrar resumen de validación
+        logger.info("📊 RESUMEN DE VALIDACIÓN DE VARIABLES CRÍTICAS:");
+        logger.info("  ✅ Variables válidas: {}", validatedCount);
+        logger.info("  ❌ Variables con errores: {}", errorCount);
+        logger.info("  ⚠️ Advertencias: {}", warningCount);
+        
+        if (errorCount > 0) {
+            logger.error("🚨 VALIDACIÓN FALLIDA: {} variables críticas tienen errores", errorCount);
+            logger.error("   La aplicación NO PUEDE continuar con variables de entorno inválidas");
+            logger.error("   Revise la configuración de Docker Compose o las variables de entorno del sistema");
+        } else {
+            logger.info("🎉 VALIDACIÓN EXITOSA: Todas las variables de entorno críticas son válidas");
+        }
+        
+        logger.info("=== 🏁 FIN VALIDACIÓN DE VARIABLES DE ENTORNO CRÍTICAS ===");
+    }
+    
+    /**
+     * Valida configuraciones erróneas comunes que pueden causar problemas
+     */
+    private void validateCommonMisconfigurations(List<String> errors) {
+        logger.debug("🔍 Verificando configuraciones erróneas comunes...");
+        
+        // Verificar si DB_HOST está configurado como localhost en Docker
+        String dbHost = System.getenv("DB_HOST");
+        if (dbHost != null) {
+            if ("localhost".equals(dbHost) || "127.0.0.1".equals(dbHost)) {
+                // Verificar si estamos en un contenedor Docker
+                if (isRunningInDocker()) {
+                    String warning = "⚠️ CONFIGURACIÓN SOSPECHOSA: DB_HOST='{}' detectado en contenedor Docker. " +
+                        "Considere usar el nombre del servicio (ej: 'postgres') en lugar de localhost";
+                    logger.warn(warning, dbHost);
+                    // No agregar como error, solo advertencia
+                }
+            }
+        }
+        
+        // Verificar puertos comunes mal configurados
+        String dbPort = System.getenv("DB_PORT");
+        if (dbPort != null) {
+            try {
+                int port = Integer.parseInt(dbPort);
+                if (port == 3306) {
+                    logger.warn("⚠️ DB_PORT=3306 detectado. ¿Está seguro de que no debería ser 5432 para PostgreSQL?");
+                }
+            } catch (NumberFormatException e) {
+                // Ya se maneja en la validación principal
+            }
+        }
+        
+        // Verificar secretos por defecto en producción
+        if (isProduction()) {
+            String jwtSecret = System.getenv("JWT_SECRET");
+            if (jwtSecret != null && (jwtSecret.contains("default") || jwtSecret.contains("secret123"))) {
+                String error = "❌ SEGURIDAD CRÍTICA: JWT_SECRET contiene valores por defecto en PRODUCCIÓN";
+                logger.error(error);
+                errors.add(error);
+            }
+        }
+    }
+    
+    /**
+     * Detecta si la aplicación está ejecutándose dentro de un contenedor Docker
+     */
+    private boolean isRunningInDocker() {
+        // Verificar variables de entorno típicas de Docker
+        return System.getenv("DOCKER_CONTAINER") != null ||
+               System.getenv("container") != null ||
+               System.getProperty("java.class.path", "").contains("docker") ||
+               // Verificar si existe el archivo /.dockerenv
+               new java.io.File("/.dockerenv").exists();
+    }
+    
+    // Métodos de validación específicos para diferentes tipos de valores
+    
+    private boolean validateHostname(String hostname) {
+        if (hostname == null || hostname.trim().isEmpty()) {
+            return false;
+        }
+        
+        hostname = hostname.trim();
+        
+        // Verificar longitud
+        if (hostname.length() > 253) {
+            return false;
+        }
+        
+        // Verificar caracteres válidos para hostname
+        if (!hostname.matches("^[a-zA-Z0-9.-]+$")) {
+            return false;
+        }
+        
+        // No debe empezar o terminar con punto o guión
+        if (hostname.startsWith(".") || hostname.endsWith(".") || 
+            hostname.startsWith("-") || hostname.endsWith("-")) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    private boolean validatePort(String portStr) {
+        if (portStr == null || portStr.trim().isEmpty()) {
+            return false;
+        }
+        
+        try {
+            int port = Integer.parseInt(portStr.trim());
+            return port >= 1 && port <= 65535;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+    
+    private boolean validateDatabaseName(String dbName) {
+        if (dbName == null || dbName.trim().isEmpty()) {
+            return false;
+        }
+        
+        dbName = dbName.trim();
+        
+        // Verificar longitud (PostgreSQL permite hasta 63 caracteres)
+        if (dbName.length() > 63) {
+            return false;
+        }
+        
+        // Verificar caracteres válidos para nombre de base de datos
+        if (!dbName.matches("^[a-zA-Z0-9_-]+$")) {
+            return false;
+        }
+        
+        // No debe empezar con número o guión
+        if (dbName.matches("^[0-9-].*")) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    private boolean validateUsername(String username) {
+        return username != null && !username.trim().isEmpty();
+    }
+    
+    private boolean validatePassword(String password) {
+        return password != null && password.length() >= 1;
+    }
+    
+    private boolean validateJwtSecretEnv(String secret) {
+        if (secret == null || secret.trim().isEmpty()) {
+            return false;
+        }
+        
+        // JWT secret debe tener al menos 32 caracteres para ser seguro
+        return secret.length() >= 32;
+    }
+    
+    private boolean validateEnvironmentName(String env) {
+        if (env == null || env.trim().isEmpty()) {
+            return true; // Opcional, puede estar vacío
+        }
+        
+        Set<String> validEnvironments = Set.of("development", "qa", "production");
+        return validEnvironments.contains(env.trim().toLowerCase());
+    }
+    
+    /**
+     * Clase auxiliar para definir validadores de variables de entorno
+     */
+    private static class EnvironmentVariableValidator {
+        private boolean required = false;
+        private String description = "";
+        private java.util.function.Function<String, Boolean> validator = (value) -> true;
+        private String errorMessage = "Valor inválido";
+        
+        public EnvironmentVariableValidator required(boolean required) {
+            this.required = required;
+            return this;
+        }
+        
+        public EnvironmentVariableValidator description(String description) {
+            this.description = description;
+            return this;
+        }
+        
+        public EnvironmentVariableValidator validator(java.util.function.Function<String, Boolean> validator) {
+            this.validator = validator;
+            return this;
+        }
+        
+        public EnvironmentVariableValidator errorMessage(String errorMessage) {
+            this.errorMessage = errorMessage;
+            return this;
+        }
+        
+        public boolean isRequired() {
+            return required;
+        }
+        
+        public String getDescription() {
+            return description;
+        }
+        
+        public java.util.function.Function<String, Boolean> getValidator() {
+            return validator;
+        }
+        
+        public String getErrorMessage() {
+            return errorMessage;
+        }
     }
     
     private void validateRequired(String key, List<String> errors) {
@@ -897,6 +1237,34 @@ public class ConfigService {
         info.put("configuration", safeConfig);
         
         return info;
+    }
+    
+    /**
+     * Valida explícitamente las variables de entorno críticas y retorna el resultado.
+     * Este método puede ser llamado externamente para verificar la configuración.
+     * 
+     * @return Map con información de validación incluyendo errores encontrados
+     */
+    public Map<String, Object> validateCriticalEnvironmentVariables() {
+        logger.info("🔍 Iniciando validación externa de variables de entorno críticas");
+        
+        List<String> errors = new ArrayList<>();
+        validateCriticalEnvironmentVariables(errors);
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("valid", errors.isEmpty());
+        result.put("errors", errors);
+        result.put("errorCount", errors.size());
+        result.put("timestamp", System.currentTimeMillis());
+        result.put("environment", environment);
+        
+        if (errors.isEmpty()) {
+            logger.info("✅ Validación externa exitosa: todas las variables críticas son válidas");
+        } else {
+            logger.error("❌ Validación externa falló: {} errores encontrados", errors.size());
+        }
+        
+        return result;
     }
     
     /**
