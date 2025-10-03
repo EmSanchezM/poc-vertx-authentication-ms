@@ -380,22 +380,22 @@ public class DebugController {
             
             // Configuración de base de datos
             configInfo.put("database", new JsonObject()
-                .put("host", configService.getProperty("db.host", "unknown"))
-                .put("port", configService.getProperty("db.port", "unknown"))
-                .put("name", configService.getProperty("db.name", "unknown"))
-                .put("username", configService.getProperty("db.username", "unknown"))
-                .put("maxPoolSize", configService.getProperty("db.pool.maxSize", "unknown")));
+                .put("host", configService.getString("db.host", "unknown"))
+                .put("port", configService.getString("db.port", "unknown"))
+                .put("name", configService.getString("db.name", "unknown"))
+                .put("username", configService.getString("db.username", "unknown"))
+                .put("maxPoolSize", configService.getString("db.pool.maxSize", "unknown")));
             
             // Configuración de Redis
             configInfo.put("redis", new JsonObject()
-                .put("host", configService.getProperty("redis.host", "unknown"))
-                .put("port", configService.getProperty("redis.port", "unknown"))
-                .put("database", configService.getProperty("redis.database", "unknown")));
+                .put("host", configService.getString("redis.host", "unknown"))
+                .put("port", configService.getString("redis.port", "unknown"))
+                .put("database", configService.getString("redis.database", "unknown")));
             
             // Configuración del servidor
             configInfo.put("server", new JsonObject()
-                .put("port", configService.getProperty("server.port", "unknown"))
-                .put("host", configService.getProperty("server.host", "unknown")));
+                .put("port", configService.getString("server.port", "unknown"))
+                .put("host", configService.getString("server.host", "unknown")));
             
             // Fuentes de configuración utilizadas
             configInfo.put("sources", getConfigurationSources());
@@ -533,13 +533,13 @@ public class DebugController {
         // Nota: En un entorno real, aquí haríamos pruebas de conectividad
         // Por ahora, solo reportamos la configuración
         connectivity.put("database", new JsonObject()
-            .put("host", configService.getProperty("db.host", "unknown"))
-            .put("port", configService.getProperty("db.port", "unknown"))
+            .put("host", configService.getString("db.host", "unknown"))
+            .put("port", configService.getString("db.port", "unknown"))
             .put("reachable", "unknown - requires async test"));
         
         connectivity.put("redis", new JsonObject()
-            .put("host", configService.getProperty("redis.host", "unknown"))
-            .put("port", configService.getProperty("redis.port", "unknown"))
+            .put("host", configService.getString("redis.host", "unknown"))
+            .put("port", configService.getString("redis.port", "unknown"))
             .put("reachable", "unknown - requires async test"));
         
         return connectivity;
@@ -558,13 +558,13 @@ public class DebugController {
     
     private boolean testDatabaseConnectivity() {
         // Verificación simple - en un entorno real usaríamos el health check service
-        String dbHost = configService.getProperty("db.host", "");
+        String dbHost = configService.getString("db.host", "");
         return !dbHost.isEmpty() && !dbHost.equals("localhost");
     }
     
     private boolean testRedisConnectivity() {
         // Verificación simple - en un entorno real usaríamos el health check service
-        String redisHost = configService.getProperty("redis.host", "");
+        String redisHost = configService.getString("redis.host", "");
         return !redisHost.isEmpty() && !redisHost.equals("localhost");
     }
     
@@ -573,7 +573,7 @@ public class DebugController {
         String[] criticalConfigs = {"db.host", "db.port", "db.name", "redis.host"};
         
         for (String config : criticalConfigs) {
-            String value = configService.getProperty(config, "");
+            String value = configService.getString(config, "");
             if (value.isEmpty()) {
                 return false;
             }
@@ -613,7 +613,7 @@ public class DebugController {
             recommendations.add("Revisar la configuración de la aplicación");
         }
         
-        if (configService.getProperty("db.host", "").equals("localhost")) {
+        if (configService.getString("db.host", "").equals("localhost")) {
             recommendations.add("La base de datos está configurada como localhost - verificar en entorno Docker");
         }
         

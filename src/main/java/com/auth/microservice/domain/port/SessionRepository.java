@@ -80,4 +80,23 @@ public interface SessionRepository extends Repository<Session, UUID> {
      * @return Future containing count of active sessions
      */
     Future<Long> countActiveSessionsByUserId(UUID userId);
+    
+    /**
+     * Count all active sessions in the system
+     * @return Future containing total active session count
+     */
+    Future<Long> countActiveSessions();
+    
+    /**
+     * Count all sessions in the system (active and inactive)
+     * @return Future containing total session count
+     */
+    Future<Long> countTotalSessions();
+    
+    /**
+     * Count sessions created since a specific date
+     * @param since Date to count from
+     * @return Future containing count of sessions created since the date
+     */
+    Future<Long> countSessionsCreatedSince(LocalDateTime since);
 }

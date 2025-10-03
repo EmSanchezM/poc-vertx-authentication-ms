@@ -266,4 +266,43 @@ public class SessionRepositoryImpl extends AbstractRepository<Session, UUID> imp
             })
             .onFailure(error -> logger.error("Failed to count active sessions by user ID: {}", userId, error));
     }
+    
+    @Override
+    public Future<Long> countActiveSessions() {
+        String sql = "SELECT COUNT(*) FROM sessions WHERE is_active = true AND expires_at > NOW()";
+        return executeQuery(sql, Tuple.tuple())
+            .map(rows -> {
+                if (rows.size() > 0) {
+                    return rows.iterator().next().getLong(0);
+                }
+                return 0L;
+            })
+            .onFailure(error -> logger.error("Failed to count active sessions", error));
+    }
+    
+    @Override
+    public Future<Long> countTotalSessions() {
+        String sql = "SELECT COUNT(*) FROM sessions";
+        return executeQuery(sql, Tuple.tuple())
+            .map(rows -> {
+                if (rows.size() > 0) {
+                    return rows.iterator().next().getLong(0);
+                }
+                return 0L;
+            })
+            .onFailure(error -> logger.error("Failed to count total sessions", error));
+    }
+    
+    @Override
+    public Future<Long> countSessionsCreatedSince(LocalDateTime since) {
+        String sql = "SELECT COUNT(*) FROM sessions WHERE created_at >= $1";
+        return executeQuery(sql, Tuple.of(since))
+            .map(rows -> {
+                if (rows.size() > 0) {
+                    return rows.iterator().next().getLong(0);
+                }
+                return 0L;
+            })
+            .onFailure(error -> logger.error("Failed to count sessions created since: {}", since, error));
+    }
 }

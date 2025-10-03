@@ -59,4 +59,16 @@ public interface RoleRepository extends Repository<Role, UUID> {
      * @return Future containing boolean result
      */
     Future<Boolean> existsByName(String name);
+    
+    /**
+     * Count all roles in the system
+     * @return Future containing total role count
+     */
+    Future<Long> countAll();
+    
+    /**
+     * Get role distribution (role name to user count mapping)
+     * @return Future containing map of role names to user counts
+     */
+    Future<java.util.Map<String, Long>> getRoleDistribution();
 }

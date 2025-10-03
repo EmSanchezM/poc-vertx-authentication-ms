@@ -268,4 +268,40 @@ public class RoleRepositoryImpl extends AbstractRepository<Role, UUID> implement
         
         return new java.util.ArrayList<>(roleMap.values());
     }
+    
+    @Override
+    public Future<Long> countAll() {
+        String sql = "SELECT COUNT(*) FROM roles";
+        return executeQuery(sql, Tuple.tuple())
+            .map(rows -> {
+                if (rows.size() > 0) {
+                    return rows.iterator().next().getLong(0);
+                }
+                return 0L;
+            })
+            .onFailure(error -> logger.error("Failed to count all roles", error));
+    }
+    
+    @Override
+    public Future<java.util.Map<String, Long>> getRoleDistribution() {
+        String sql = """
+            SELECT r.name, COUNT(ur.user_id) as user_count
+            FROM roles r
+            LEFT JOIN user_roles ur ON r.id = ur.role_id
+            GROUP BY r.id, r.name
+            ORDER BY user_count DESC
+            """;
+        
+        return executeQuery(sql, Tuple.tuple())
+            .map(rows -> {
+                java.util.Map<String, Long> distribution = new java.util.HashMap<>();
+                for (Row row : rows) {
+                    String roleName = SqlUtils.getString(row, "name");
+                    Long userCount = row.getLong("user_count");
+                    distribution.put(roleName, userCount);
+                }
+                return distribution;
+            })
+            .onFailure(error -> logger.error("Failed to get role distribution", error));
+    }
 }

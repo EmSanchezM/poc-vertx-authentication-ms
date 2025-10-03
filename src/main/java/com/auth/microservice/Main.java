@@ -104,6 +104,13 @@ public class Main {
         logger.info("  - GET /api/users/profile - Perfil de usuario");
         logger.info("  - PUT /api/users/profile - Actualizar perfil");
         logger.info("");
+        logger.info("Admin Endpoints:");
+        logger.info("  - POST /api/admin/roles - Crear rol (admin:roles:create)");
+        logger.info("  - PUT /api/admin/roles/{id} - Actualizar rol (admin:roles:update)");
+        logger.info("  - GET /api/admin/roles - Listar roles (admin:roles:read)");
+        logger.info("  - POST /api/admin/users/{id}/roles - Asignar rol (admin:users:assign-roles)");
+        logger.info("  - GET /api/admin/reports - Reportes administrativos (admin:reports:read)");
+        logger.info("");
         
         if (appProps.isDevelopment()) {
             logger.info("Modo desarrollo activo:");

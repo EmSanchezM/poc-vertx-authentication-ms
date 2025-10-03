@@ -266,6 +266,45 @@ public class UserRepositoryImpl extends AbstractRepository<User, UUID> implement
             .onFailure(error -> logger.error("Failed to search users with term: {}", searchTerm, error));
     }
     
+    @Override
+    public Future<Long> countAll() {
+        String sql = "SELECT COUNT(*) FROM users";
+        return executeQuery(sql, Tuple.tuple())
+            .map(rows -> {
+                if (rows.size() > 0) {
+                    return rows.iterator().next().getLong(0);
+                }
+                return 0L;
+            })
+            .onFailure(error -> logger.error("Failed to count all users", error));
+    }
+    
+    @Override
+    public Future<Long> countActive() {
+        String sql = "SELECT COUNT(*) FROM users WHERE is_active = true";
+        return executeQuery(sql, Tuple.tuple())
+            .map(rows -> {
+                if (rows.size() > 0) {
+                    return rows.iterator().next().getLong(0);
+                }
+                return 0L;
+            })
+            .onFailure(error -> logger.error("Failed to count active users", error));
+    }
+    
+    @Override
+    public Future<Long> countCreatedSince(LocalDateTime since) {
+        String sql = "SELECT COUNT(*) FROM users WHERE created_at >= $1";
+        return executeQuery(sql, Tuple.of(since))
+            .map(rows -> {
+                if (rows.size() > 0) {
+                    return rows.iterator().next().getLong(0);
+                }
+                return 0L;
+            })
+            .onFailure(error -> logger.error("Failed to count users created since: {}", since, error));
+    }
+    
     /**
      * Map database rows to User entity with roles
      * @param rows Database rows containing user and role data

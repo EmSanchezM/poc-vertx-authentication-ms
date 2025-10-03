@@ -230,6 +230,7 @@ public class WebRouterConfiguration {
     public void configureControllerRoutes(Router router, 
                                          com.auth.microservice.infrastructure.adapter.web.AuthController authController,
                                          com.auth.microservice.infrastructure.adapter.web.UserController userController,
+                                         com.auth.microservice.infrastructure.adapter.web.AdminController adminController,
                                          com.auth.microservice.infrastructure.adapter.rest.MonitoringController monitoringController,
                                          com.auth.microservice.infrastructure.adapter.web.DebugController debugController) {
         
@@ -243,6 +244,11 @@ public class WebRouterConfiguration {
         
         userController.configureRoutes(protectedRouter);
         router.mountSubRouter("/api", protectedRouter);
+        
+        // Configurar rutas administrativas (requieren permisos específicos de admin)
+        Router adminRouter = Router.router(vertx);
+        adminController.configureRoutes(adminRouter);
+        router.mountSubRouter("/api", adminRouter);
         
         // Configurar rutas de monitoreo
         monitoringController.configureRoutes(router);

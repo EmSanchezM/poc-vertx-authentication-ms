@@ -173,6 +173,78 @@ public class RequestValidator {
     }
     
     /**
+     * Valida request de actualización de rol
+     */
+    public static ValidationResult validateUpdateRoleRequest(JsonObject body) {
+        List<String> errors = new ArrayList<>();
+        
+        String description = body.getString("description");
+        if (description != null && description.length() > 500) {
+            errors.add("Role description must not exceed 500 characters");
+        }
+        
+        // Verificar que al menos un campo esté presente
+        if (description == null) {
+            errors.add("At least one field (description) must be provided");
+        }
+        
+        return errors.isEmpty() ? ValidationResult.success(body) : ValidationResult.error(errors);
+    }
+    
+    /**
+     * Valida request de asignación de rol
+     */
+    public static ValidationResult validateAssignRoleRequest(JsonObject body) {
+        List<String> errors = new ArrayList<>();
+        
+        String roleId = body.getString("roleId");
+        if (roleId == null || roleId.trim().isEmpty()) {
+            errors.add("Role ID is required");
+        } else if (!isValidUuid(roleId)) {
+            errors.add("Role ID must be a valid UUID");
+        }
+        
+        return errors.isEmpty() ? ValidationResult.success(body) : ValidationResult.error(errors);
+    }
+    
+    /**
+     * Valida parámetros de reporte administrativo
+     */
+    public static ValidationResult validateAdminReportParams(RoutingContext context) {
+        List<String> errors = new ArrayList<>();
+        
+        String reportType = context.request().getParam("type");
+        if (reportType == null || reportType.trim().isEmpty()) {
+            reportType = "overview"; // default
+        }
+        
+        // Validar tipos de reporte permitidos
+        if (!isValidReportType(reportType)) {
+            errors.add("Invalid report type. Allowed types: overview, users, roles, sessions, security");
+        }
+        
+        String includeDetails = context.request().getParam("includeDetails");
+        boolean details = "true".equalsIgnoreCase(includeDetails);
+        
+        if (!errors.isEmpty()) {
+            return ValidationResult.error(errors);
+        }
+        
+        JsonObject reportParams = new JsonObject()
+            .put("reportType", reportType)
+            .put("includeDetails", details);
+        
+        return ValidationResult.success(reportParams);
+    }
+    
+    private static boolean isValidReportType(String reportType) {
+        return reportType != null && 
+               (reportType.equals("overview") || reportType.equals("users") || 
+                reportType.equals("roles") || reportType.equals("sessions") || 
+                reportType.equals("security"));
+    }
+    
+    /**
      * Valida request de creación de usuario (admin)
      */
     public static ValidationResult validateCreateUserRequest(JsonObject body) {

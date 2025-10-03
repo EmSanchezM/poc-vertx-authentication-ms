@@ -76,4 +76,23 @@ public interface UserRepository extends Repository<User, UUID> {
      * @return Future containing boolean result
      */
     Future<Boolean> existsByUsername(String username);
+    
+    /**
+     * Count all users in the system
+     * @return Future containing total user count
+     */
+    Future<Long> countAll();
+    
+    /**
+     * Count active users in the system
+     * @return Future containing active user count
+     */
+    Future<Long> countActive();
+    
+    /**
+     * Count users created since a specific date
+     * @param since Date to count from
+     * @return Future containing count of users created since the date
+     */
+    Future<Long> countCreatedSince(java.time.LocalDateTime since);
 }
