@@ -20,12 +20,13 @@ public class MonitoringController {
     
     private final HealthCheckService healthCheckService;
     private final MetricsService metricsService;
-    private final Vertx vertx;
+    private final com.auth.microservice.infrastructure.config.ConfigurationFactory configFactory;
     
-    public MonitoringController(HealthCheckService healthCheckService, MetricsService metricsService, Vertx vertx) {
+    public MonitoringController(HealthCheckService healthCheckService, MetricsService metricsService, 
+                               com.auth.microservice.infrastructure.config.ConfigurationFactory configFactory) {
         this.healthCheckService = healthCheckService;
         this.metricsService = metricsService;
-        this.vertx = vertx;
+        this.configFactory = configFactory;
     }
     
     /**
@@ -231,19 +232,14 @@ public class MonitoringController {
         HttpServerResponse response = context.response();
         
         try {
-            // Información de la aplicación
-            String version = getClass().getPackage().getImplementationVersion();
-            if (version == null) version = "development";
+            // Usar la información de configuración del factory
+            var configInfo = configFactory.getConfigurationInfo();
             
             // Información del sistema
             Runtime runtime = Runtime.getRuntime();
             
             JsonObject infoResponse = new JsonObject()
-                .put("application", new JsonObject()
-                    .put("name", "auth-microservice")
-                    .put("version", version)
-                    .put("description", "Authentication and Authorization Microservice with RBAC")
-                    .put("timestamp", java.time.Instant.now().toString()))
+                .put("application", configInfo)
                 .put("system", new JsonObject()
                     .put("javaVersion", System.getProperty("java.version"))
                     .put("javaVendor", System.getProperty("java.vendor"))
@@ -262,7 +258,8 @@ public class MonitoringController {
                     .put("rateLimiting", true)
                     .put("geolocation", true)
                     .put("metrics", true)
-                    .put("healthChecks", true));
+                    .put("healthChecks", true))
+                .put("timestamp", java.time.Instant.now().toString());
             
             response
                 .setStatusCode(200)

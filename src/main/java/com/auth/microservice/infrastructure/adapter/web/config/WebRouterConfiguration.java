@@ -6,6 +6,7 @@ import com.auth.microservice.domain.service.GeoLocationService;
 import com.auth.microservice.domain.service.JWTService;
 import com.auth.microservice.domain.service.RateLimitService;
 import com.auth.microservice.infrastructure.adapter.web.middleware.*;
+import com.auth.microservice.infrastructure.metrics.MetricsService;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
@@ -18,12 +19,13 @@ import org.slf4j.LoggerFactory;
 import java.util.Set;
 
 /**
- * Configuración de la capa web y middleware
- * Centraliza la configuración de todos los middleware y handlers
+ * Configuración centralizada del router web y middleware.
+ * Responsable únicamente de la configuración de rutas, middleware y handlers HTTP.
+ * Separada de la lógica de inicialización de componentes.
  */
-public class WebConfig {
+public class WebRouterConfiguration {
     
-    private static final Logger logger = LoggerFactory.getLogger(WebConfig.class);
+    private static final Logger logger = LoggerFactory.getLogger(WebRouterConfiguration.class);
     
     private final Vertx vertx;
     private final JWTService jwtService;
@@ -31,19 +33,23 @@ public class WebConfig {
     private final QueryBus queryBus;
     private final RateLimitService rateLimitService;
     private final GeoLocationService geoLocationService;
+    private final MetricsService metricsService;
     
-    public WebConfig(Vertx vertx, JWTService jwtService, CommandBus commandBus, QueryBus queryBus, 
-                    RateLimitService rateLimitService, GeoLocationService geoLocationService) {
+    public WebRouterConfiguration(Vertx vertx, JWTService jwtService, CommandBus commandBus, QueryBus queryBus, 
+                                 RateLimitService rateLimitService, GeoLocationService geoLocationService,
+                                 MetricsService metricsService) {
         this.vertx = vertx;
         this.jwtService = jwtService;
         this.commandBus = commandBus;
         this.queryBus = queryBus;
         this.rateLimitService = rateLimitService;
         this.geoLocationService = geoLocationService;
+        this.metricsService = metricsService;
     }
     
     /**
-     * Configura el router principal con todos los middleware globales
+     * Configura el router principal con todos los middleware globales.
+     * Los controladores deben ser configurados por separado usando configureControllerRoutes().
      */
     public Router configureMainRouter() {
         Router router = Router.router(vertx);
@@ -54,16 +60,13 @@ public class WebConfig {
         // Configurar headers de seguridad
         configureSecurityHeaders(router);
         
-        // Configurar rutas de salud y métricas
-        configureHealthRoutes(router);
-        
-        // Configurar todos los controladores
-        configureControllers(router);
+        // Configurar rutas básicas de salud y métricas
+        configureBasicHealthRoutes(router);
         
         // Configurar manejo de errores (debe ir al final)
         configureErrorHandlers(router);
         
-        logger.info("Web configuration completed successfully");
+        logger.info("Web router configuration completed successfully");
         return router;
     }
     
@@ -89,10 +92,13 @@ public class WebConfig {
             .setMergeFormAttributes(true)
             .setDeleteUploadedFilesOnEnd(true));
         
-        // 6. Security logging con geolocalización
+        // 6. Metrics collection (debe ir antes del security logging)
+        router.route().handler(new MetricsMiddleware(metricsService));
+        
+        // 7. Security logging con geolocalización
         router.route().handler(new SecurityLoggingMiddleware(geoLocationService));
         
-        // 7. Error handling global
+        // 8. Error handling global
         router.route().failureHandler(new ErrorHandlerMiddleware());
         
         logger.info("Global middleware configured successfully");
@@ -171,34 +177,18 @@ public class WebConfig {
     }
     
     /**
-     * Configura rutas de salud y métricas
+     * Configura rutas básicas de salud (las rutas completas de monitoreo se configuran en MonitoringController)
      */
-    public void configureHealthRoutes(Router router) {
-        // Health check básico
-        router.get("/health").handler(ctx -> {
+    private void configureBasicHealthRoutes(Router router) {
+        // Endpoint raíz básico
+        router.get("/").handler(ctx -> {
             ctx.response()
                 .putHeader("Content-Type", "application/json")
-                .end("{\"status\":\"UP\",\"service\":\"auth-microservice\",\"timestamp\":\"" + 
+                .end("{\"message\":\"Auth Microservice is running\",\"status\":\"UP\",\"timestamp\":\"" + 
                      java.time.Instant.now().toString() + "\"}");
         });
         
-        // Health check detallado
-        router.get("/health/detailed").handler(ctx -> {
-            // TODO: Implementar checks de base de datos, Redis, etc.
-            ctx.response()
-                .putHeader("Content-Type", "application/json")
-                .end("{\"status\":\"UP\",\"service\":\"auth-microservice\",\"checks\":{\"database\":\"UP\",\"redis\":\"UP\"}}");
-        });
-        
-        // Endpoint de métricas (sin autenticación para Prometheus)
-        router.get("/metrics").handler(ctx -> {
-            // TODO: Integrar con Micrometer/Prometheus
-            ctx.response()
-                .putHeader("Content-Type", "text/plain")
-                .end("# Metrics endpoint - TODO: implement Prometheus metrics");
-        });
-        
-        logger.info("Health and metrics routes configured");
+        logger.info("Basic health routes configured");
     }
     
     /**
@@ -234,25 +224,29 @@ public class WebConfig {
     }
     
     /**
-     * Configura todos los controladores de la aplicación
+     * Configura controladores específicos en el router proporcionado.
+     * Los controladores deben ser creados e inyectados desde ApplicationBootstrap.
      */
-    public void configureControllers(Router router) {
-        // Configurar controlador de autenticación
-        com.auth.microservice.infrastructure.adapter.web.AuthController authController = 
-            new com.auth.microservice.infrastructure.adapter.web.AuthController(commandBus, queryBus, rateLimitService);
+    public void configureControllerRoutes(Router router, 
+                                         com.auth.microservice.infrastructure.adapter.web.AuthController authController,
+                                         com.auth.microservice.infrastructure.adapter.web.UserController userController,
+                                         com.auth.microservice.infrastructure.adapter.rest.MonitoringController monitoringController) {
+        
+        // Configurar rutas de autenticación (públicas)
         authController.configureRoutes(router);
         
-        // Configurar controlador de usuarios
-        com.auth.microservice.infrastructure.adapter.web.UserController userController = 
-            new com.auth.microservice.infrastructure.adapter.web.UserController(commandBus, queryBus, createAuthenticationMiddleware());
-        userController.configureRoutes(router);
+        // Configurar rutas protegidas de usuarios
+        Router protectedRouter = Router.router(vertx);
+        protectedRouter.route().handler(createAuthenticationMiddleware());
+        protectedRouter.route().handler(createAuthorizationMiddleware("users:read"));
         
-        // Configurar controlador administrativo - temporalmente deshabilitado
-        // com.auth.microservice.infrastructure.adapter.web.AdminController adminController = 
-        //     new com.auth.microservice.infrastructure.adapter.web.AdminController(commandBus, queryBus, createAuthenticationMiddleware());
-        // adminController.configureRoutes(router);
+        userController.configureRoutes(protectedRouter);
+        router.mountSubRouter("/api", protectedRouter);
         
-        logger.info("All controllers configured successfully");
+        // Configurar rutas de monitoreo
+        monitoringController.configureRoutes(router);
+        
+        logger.info("All controller routes configured successfully");
     }
     
 

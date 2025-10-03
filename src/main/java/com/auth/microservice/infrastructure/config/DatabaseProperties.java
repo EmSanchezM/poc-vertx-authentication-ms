@@ -72,8 +72,38 @@ public class DatabaseProperties {
     public void setHealthCheckInterval(int healthCheckInterval) { this.healthCheckInterval = healthCheckInterval; }
     
     /**
-     * Crea una instancia desde variables de entorno
+     * Crea una instancia desde ConfigService
      */
+    public static DatabaseProperties fromConfigService(ConfigService configService) {
+        DatabaseProperties props = new DatabaseProperties();
+        
+        props.setHost(configService.getString("db.host"));
+        props.setPort(configService.getInt("db.port"));
+        props.setDatabase(configService.getString("db.name"));
+        props.setUsername(configService.getString("db.username"));
+        props.setPassword(configService.getString("db.password"));
+        
+        // Configuración del pool
+        props.setMaxPoolSize(configService.getInt("db.pool.maxSize"));
+        props.setMaxWaitQueueSize(configService.getInt("db.pool.maxWaitQueueSize"));
+        props.setConnectionTimeout(configService.getInt("db.pool.connectionTimeout"));
+        props.setIdleTimeout(configService.getInt("db.pool.idleTimeout"));
+        
+        // Configuración de reconexión
+        props.setReconnectAttempts(configService.getInt("db.reconnect.attempts"));
+        props.setReconnectInterval(configService.getLong("db.reconnect.interval"));
+        
+        // Configuración de health check
+        props.setHealthCheckInterval(configService.getInt("db.healthCheck.interval"));
+        
+        return props;
+    }
+    
+    /**
+     * Crea una instancia desde variables de entorno (método legacy)
+     * @deprecated Usar fromConfigService en su lugar
+     */
+    @Deprecated
     public static DatabaseProperties fromEnvironment() {
         DatabaseProperties props = new DatabaseProperties();
         

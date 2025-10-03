@@ -1,161 +1,148 @@
 package com.auth.microservice;
 
-import com.auth.microservice.infrastructure.health.HealthCheckService;
-import com.auth.microservice.infrastructure.metrics.MetricsService;
-import com.auth.microservice.infrastructure.adapter.rest.MonitoringController;
-import com.auth.microservice.infrastructure.adapter.rest.middleware.MetricsMiddleware;
+import com.auth.microservice.infrastructure.config.ApplicationBootstrap;
+import com.auth.microservice.infrastructure.config.ApplicationProperties;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServer;
 import io.vertx.ext.web.Router;
-import io.vertx.ext.web.handler.BodyHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Clase principal de la aplicación Auth Microservice.
+ * Utiliza el patrón de bootstrap para inicializar todos los componentes
+ * de forma ordenada y configurar la infraestructura CQRS completa.
+ */
 public class Main {
     
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
     
+    private static ApplicationBootstrap bootstrap;
+    private static HttpServer server;
+    
     public static void main(String[] args) {
+        logger.info("=== INICIANDO AUTH MICROSERVICE ===");
+        
         Vertx vertx = Vertx.vertx();
         
+        // Configurar shutdown hook
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            logger.info("Recibida señal de shutdown...");
+            shutdown();
+        }));
+        
         try {
-            // Initialize monitoring services
-            MetricsService metricsService = new MetricsService(vertx);
-            HealthCheckService healthCheckService = createMockHealthCheckService(vertx);
-            MonitoringController monitoringController = new MonitoringController(healthCheckService, metricsService, vertx);
+            // Inicializar bootstrap
+            bootstrap = new ApplicationBootstrap(vertx);
             
-            // Create HTTP server
-            HttpServer server = vertx.createHttpServer();
-            
-            // Create router
-            Router router = Router.router(vertx);
-            router.route().handler(BodyHandler.create());
-            
-            // Add metrics middleware to all routes
-            MetricsMiddleware metricsMiddleware = new MetricsMiddleware(metricsService);
-            router.route().handler(metricsMiddleware);
-            
-            // Configure monitoring routes
-            monitoringController.configureRoutes(router);
-            
-            // Root endpoint
-            router.get("/").handler(ctx -> {
-                ctx.response()
-                    .putHeader("content-type", "application/json")
-                    .end("{\"message\":\"Auth Microservice is running\",\"version\":\"1.0.0\"}");
-            });
-            
-            // Test endpoints to generate metrics
-            router.post("/auth/login").handler(ctx -> {
-                // Simulate authentication
-                String country = ctx.request().getHeader("X-Country");
-                if (country == null) country = "Unknown";
+            // Inicializar todos los componentes
+            bootstrap.initialize()
+                .compose(v -> startHttpServer(vertx))
+                .onSuccess(v -> logStartupSuccess())
+                .onFailure(throwable -> {
+                    logger.error("Error durante el inicio de la aplicación", throwable);
+                    shutdown();
+                    System.exit(1);
+                });
                 
-                // Simulate success/failure
-                boolean success = Math.random() > 0.3; // 70% success rate
-                
-                if (success) {
-                    metricsService.recordAuthenticationSuccess(country);
-                    metricsService.recordSessionCreated();
-                    ctx.response()
-                        .setStatusCode(200)
-                        .putHeader("content-type", "application/json")
-                        .end("{\"status\":\"success\",\"token\":\"mock-jwt-token\"}");
-                } else {
-                    metricsService.recordAuthenticationFailure(country);
-                    ctx.response()
-                        .setStatusCode(401)
-                        .putHeader("content-type", "application/json")
-                        .end("{\"status\":\"error\",\"message\":\"Invalid credentials\"}");
-                }
-            });
-            
-            router.post("/auth/logout").handler(ctx -> {
-                metricsService.recordSessionInvalidated();
-                ctx.response()
-                    .setStatusCode(200)
-                    .putHeader("content-type", "application/json")
-                    .end("{\"status\":\"success\",\"message\":\"Logged out\"}");
-            });
-            
-            // Test endpoint for rate limiting
-            router.get("/test/rate-limit").handler(ctx -> {
-                metricsService.recordRateLimitExceeded();
-                ctx.response()
-                    .setStatusCode(429)
-                    .putHeader("content-type", "application/json")
-                    .end("{\"status\":\"error\",\"message\":\"Rate limit exceeded\"}");
-            });
-            
-            // Test endpoint for suspicious activity
-            router.get("/test/suspicious").handler(ctx -> {
-                String country = ctx.request().getParam("country");
-                if (country == null) country = "Unknown";
-                metricsService.recordSuspiciousActivity(country);
-                ctx.response()
-                    .setStatusCode(200)
-                    .putHeader("content-type", "application/json")
-                    .end("{\"status\":\"logged\",\"message\":\"Suspicious activity recorded\"}");
-            });
-            
-            // Start server
-            int port = Integer.parseInt(System.getenv().getOrDefault("SERVER_PORT", "8080"));
-            
-            server.requestHandler(router).listen(port, result -> {
-                if (result.succeeded()) {
-                    logger.info("Auth Microservice started on port {} with monitoring enabled", port);
-                    logger.info("Monitoring endpoints:");
-                    logger.info("  - Health: http://localhost:{}/health", port);
-                    logger.info("  - Metrics: http://localhost:{}/metrics", port);
-                    logger.info("  - Info: http://localhost:{}/info", port);
-                    logger.info("External monitoring:");
-                    logger.info("  - Prometheus: http://localhost:9090");
-                    logger.info("  - Grafana: http://localhost:3000 (admin/admin)");
-                    logger.info("  - AlertManager: http://localhost:9093");
-                } else {
-                    logger.error("Failed to start server: {}", result.cause().getMessage());
-                    vertx.close();
-                }
-            });
-            
         } catch (Exception e) {
-            logger.error("Failed to initialize application", e);
-            vertx.close();
+            logger.error("Error crítico durante la inicialización", e);
+            shutdown();
+            System.exit(1);
         }
     }
     
     /**
-     * Creates a mock health check service for demonstration purposes
+     * Inicia el servidor HTTP con el router configurado
      */
-    private static HealthCheckService createMockHealthCheckService(Vertx vertx) {
-        return new HealthCheckService(vertx, null, null) {
-            @Override
-            public io.vertx.core.Future<OverallHealthStatus> checkAll() {
-                io.vertx.core.json.JsonObject details = new io.vertx.core.json.JsonObject()
-                    .put("status", "UP")
-                    .put("timestamp", java.time.Instant.now().toString())
-                    .put("components", new io.vertx.core.json.JsonObject()
-                        .put("application", new io.vertx.core.json.JsonObject()
-                            .put("status", "UP")
-                            .put("responseTimeMs", 5))
-                        .put("jvm", new io.vertx.core.json.JsonObject()
-                            .put("status", "UP")
-                            .put("memoryUsagePercent", 45.2)
-                            .put("activeThreads", Thread.activeCount())));
-                
-                return io.vertx.core.Future.succeededFuture(
-                    new OverallHealthStatus("UP", true, details, 10));
+    private static io.vertx.core.Future<Void> startHttpServer(Vertx vertx) {
+        logger.info("Iniciando servidor HTTP...");
+        
+        ApplicationProperties appProps = bootstrap.getConfigFactory().getApplicationProperties();
+        int port = appProps.getServerPort();
+        
+        // Configurar router con todos los middlewares y controladores
+        Router router = bootstrap.configureRouter();
+        
+        // Crear y configurar servidor HTTP
+        server = vertx.createHttpServer();
+        
+        return server.requestHandler(router)
+            .listen(port)
+            .map(httpServer -> {
+                logger.info("Servidor HTTP iniciado en puerto {}", port);
+                return (Void) null;
+            })
+            .onFailure(throwable -> {
+                logger.error("Error iniciando servidor HTTP en puerto {}", port, throwable);
+            });
+    }
+    
+    /**
+     * Registra información de inicio exitoso
+     */
+    private static void logStartupSuccess() {
+        ApplicationProperties appProps = bootstrap.getConfigFactory().getApplicationProperties();
+        int port = appProps.getServerPort();
+        
+        logger.info("=== AUTH MICROSERVICE INICIADO EXITOSAMENTE ===");
+        logger.info("Aplicación: {} v{}", appProps.getName(), appProps.getVersion());
+        logger.info("Ambiente: {}", appProps.getEnvironment());
+        logger.info("Puerto: {}", port);
+        logger.info("");
+        logger.info("Endpoints principales:");
+        logger.info("  - Aplicación: http://localhost:{}/", port);
+        logger.info("  - Health Check: http://localhost:{}/health", port);
+        logger.info("  - Métricas: http://localhost:{}/metrics", port);
+        logger.info("  - Información: http://localhost:{}/info", port);
+        logger.info("");
+        logger.info("API Endpoints:");
+        logger.info("  - POST /api/auth/login - Autenticación de usuarios");
+        logger.info("  - POST /api/auth/register - Registro de usuarios");
+        logger.info("  - POST /api/auth/refresh - Renovar token");
+        logger.info("  - POST /api/auth/logout - Cerrar sesión");
+        logger.info("  - GET /api/users/profile - Perfil de usuario");
+        logger.info("  - PUT /api/users/profile - Actualizar perfil");
+        logger.info("");
+        
+        if (appProps.isDevelopment()) {
+            logger.info("Modo desarrollo activo:");
+            logger.info("  - Auto-reload: {}", appProps.getDevelopment().isAutoReload());
+            logger.info("  - Mock services: {}", appProps.getDevelopment().isMockExternalServices());
+        }
+        
+        logger.info("Monitoreo externo:");
+        logger.info("  - Prometheus: http://localhost:9090");
+        logger.info("  - Grafana: http://localhost:3000 (admin/admin)");
+        logger.info("  - AlertManager: http://localhost:9093");
+        logger.info("===============================================");
+    }
+    
+    /**
+     * Realiza el shutdown ordenado de la aplicación
+     */
+    private static void shutdown() {
+        logger.info("Iniciando shutdown de la aplicación...");
+        
+        try {
+            // Cerrar servidor HTTP
+            if (server != null) {
+                server.close()
+                    .onSuccess(v -> logger.info("Servidor HTTP cerrado"))
+                    .onFailure(throwable -> logger.error("Error cerrando servidor HTTP", throwable));
             }
             
-            @Override
-            public io.vertx.core.Future<Boolean> isReady() {
-                return io.vertx.core.Future.succeededFuture(true);
+            // Cerrar bootstrap y recursos
+            if (bootstrap != null) {
+                bootstrap.shutdown()
+                    .onSuccess(v -> logger.info("Bootstrap cerrado exitosamente"))
+                    .onFailure(throwable -> logger.error("Error cerrando bootstrap", throwable));
             }
             
-            @Override
-            public io.vertx.core.Future<Boolean> isAlive() {
-                return io.vertx.core.Future.succeededFuture(true);
-            }
-        };
+            logger.info("Shutdown completado");
+            
+        } catch (Exception e) {
+            logger.error("Error durante shutdown", e);
+        }
     }
 }

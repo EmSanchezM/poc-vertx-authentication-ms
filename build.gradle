@@ -66,6 +66,7 @@ dependencies {
     
     // Configuration
     implementation "io.vertx:vertx-config:${vertxVersion}"
+    implementation "io.github.cdimascio:dotenv-java:3.0.0"
     
     // HTTP Client for GeoLocation
     implementation "io.vertx:vertx-web-client:${vertxVersion}"

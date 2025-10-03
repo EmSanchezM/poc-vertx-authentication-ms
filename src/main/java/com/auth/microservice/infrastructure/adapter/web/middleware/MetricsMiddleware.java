@@ -1,4 +1,4 @@
-package com.auth.microservice.infrastructure.adapter.rest.middleware;
+package com.auth.microservice.infrastructure.adapter.web.middleware;
 
 import com.auth.microservice.infrastructure.metrics.MetricsService;
 import io.micrometer.core.instrument.Timer;

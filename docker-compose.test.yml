@@ -1,30 +1,213 @@
+# =============================================================================
+# AUTH MICROSERVICE - TEST DOCKER COMPOSE
+# =============================================================================
+# Configuration for running tests in containerized environment
+
 version: '3.8'
 
 services:
+  # Test runner service
   test-runner:
     build:
       context: .
       dockerfile: Dockerfile.test
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - .:/app
-    working_dir: /app
     environment:
-      - DOCKER_HOST=unix:///var/run/docker.sock
-    command: gradle test --tests "*DirectMigration*" --no-daemon --info
+      # Test database configuration
+      DB_HOST: test-postgres
+      DB_PORT: 5432
+      DB_NAME: auth_microservice_test
+      DB_USERNAME: test_user
+      DB_PASSWORD: test_password
+      
+      # Test Redis configuration
+      REDIS_HOST: test-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: test_redis_password
+      REDIS_DATABASE: 1
+      
+      # Test JWT configuration
+      JWT_SECRET: test-jwt-secret-key-for-testing-only
+      JWT_ISSUER: auth-microservice-test
+      JWT_ACCESS_TOKEN_EXPIRY: 300
+      JWT_REFRESH_TOKEN_EXPIRY: 3600
+      
+      # Test security configuration
+      BCRYPT_ROUNDS: 4  # Lower rounds for faster tests
+      
+      # Test environment
+      APP_ENV: test
+      LOG_LEVEL: INFO
+      
     depends_on:
-      - postgres-test
+      test-postgres:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    networks:
+      - test-network
+    volumes:
+      - ./build/test-results:/app/build/test-results
+      - ./build/reports:/app/build/reports
 
-  postgres-test:
-    image: postgres:15
+  # Test PostgreSQL Database
+  test-postgres:
+    image: postgres:15-alpine
     environment:
-      POSTGRES_DB: auth_test
+      POSTGRES_DB: auth_microservice_test
       POSTGRES_USER: test_user
       POSTGRES_PASSWORD: test_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     ports:
       - "5433:5432"
     volumes:
-      - postgres_test_data:/var/lib/postgresql/data
+      - test_postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d auth_microservice_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # Test Redis Cache
+  test-redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes --requirepass test_redis_password
+    environment:
+      REDIS_PASSWORD: test_redis_password
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "test_redis_password", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+    volumes:
+      - test_redis_data:/data
+
+  # Integration test service (for API testing)
+  integration-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      # Point to the main application for integration tests
+      BASE_URL: http://auth-service:8080
+      
+      # Test database configuration
+      DB_HOST: test-postgres
+      DB_PORT: 5432
+      DB_NAME: auth_microservice_test
+      DB_USERNAME: test_user
+      DB_PASSWORD: test_password
+      
+      # Test environment
+      APP_ENV: test
+      LOG_LEVEL: DEBUG
+      
+    command: ["gradle", "integrationTest", "--no-daemon", "--info"]
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      test-postgres:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    networks:
+      - test-network
+    volumes:
+      - ./build/test-results:/app/build/test-results
+      - ./build/reports:/app/build/reports
+    profiles:
+      - integration
+
+  # Main application service for integration testing
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SKIP_TESTS: "true"
+    environment:
+      # Application configuration for testing
+      APP_ENV: test
+      APP_NAME: auth-microservice
+      SERVER_PORT: 8080
+      LOG_LEVEL: INFO
+      
+      # Test database configuration
+      DB_HOST: test-postgres
+      DB_PORT: 5432
+      DB_NAME: auth_microservice_test
+      DB_USERNAME: test_user
+      DB_PASSWORD: test_password
+      DB_POOL_MAX_SIZE: 5
+      DB_POOL_MAX_WAIT_QUEUE: 10
+      
+      # Test Redis configuration
+      REDIS_HOST: test-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: test_redis_password
+      REDIS_DATABASE: 1
+      
+      # Test JWT configuration
+      JWT_SECRET: test-jwt-secret-key-for-testing-only
+      JWT_ISSUER: auth-microservice-test
+      JWT_ACCESS_TOKEN_EXPIRY: 300
+      JWT_REFRESH_TOKEN_EXPIRY: 3600
+      
+      # Test security configuration
+      BCRYPT_ROUNDS: 4
+      RATE_LIMIT_ENABLED: true
+      RATE_LIMIT_LOGIN_ATTEMPTS: 100  # High limit for testing
+      RATE_LIMIT_API_REQUESTS_PER_MINUTE: 1000
+      
+      # Test CORS configuration
+      CORS_ENABLED: true
+      CORS_ALLOWED_ORIGINS: "*"
+      CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS,PATCH"
+      CORS_ALLOWED_HEADERS: "*"
+      
+      # Test monitoring
+      METRICS_ENABLED: true
+      HEALTH_CHECK_ENABLED: true
+      
+      # Test logging
+      LOG_FORMAT: json
+      LOG_FILE_ENABLED: false
+      
+      # Test external services (mocked)
+      EMAIL_ENABLED: false
+      GEOLOCATION_ENABLED: false
+      DEV_MOCK_EXTERNAL_SERVICES: true
+      
+    ports:
+      - "8081:8080"
+    depends_on:
+      test-postgres:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - integration
 
 volumes:
-  postgres_test_data:
+  test_postgres_data:
+    driver: local
+  test_redis_data:
+    driver: local
+
+networks:
+  test-network:
+    driver: bridge
