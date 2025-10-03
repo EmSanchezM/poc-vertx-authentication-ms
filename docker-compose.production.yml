@@ -3,66 +3,44 @@
 # =============================================================================
 # Usage: docker-compose -f docker-compose.yml -f docker-compose.production.yml up
 
-version: '3.8'
-
 services:
+  # Auth Microservice
   auth-service:
+    container_name: authentication-ms
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+      - "9090:9090"  # Metrics port
+    env_file:
+      - .env.production
     environment:
-      # Production overrides
-      APP_ENV: production
-      LOG_LEVEL: WARN
+      # Database configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
       
-      # Database configuration for production
-      DB_NAME: auth_microservice_prod
-      DB_USERNAME: auth_user_prod
-      # DB_PASSWORD should be provided via environment variable or secrets
-      DB_POOL_MAX_SIZE: 50
-      DB_POOL_MAX_WAIT_QUEUE: 100
-      DB_RECONNECT_ATTEMPTS: 5
-      DB_RECONNECT_INTERVAL: 2000
-      DB_HEALTH_CHECK_INTERVAL: 60000
+      # Redis configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       
-      # JWT configuration for production
-      JWT_ISSUER: auth-microservice-prod
-      JWT_ACCESS_TOKEN_EXPIRY: 900
-      JWT_REFRESH_TOKEN_EXPIRY: 604800
+      # Monitoring configuration
+      METRICS_ENABLED: true
+      METRICS_PORT: 9090
+      HEALTH_CHECK_ENABLED: true
+      HEALTH_CHECK_PORT: 8081
       
-      # Security configuration (strict for production)
-      BCRYPT_ROUNDS: 12
-      RATE_LIMIT_LOGIN_ATTEMPTS: 5
-      RATE_LIMIT_LOGIN_WINDOW_MINUTES: 15
-      RATE_LIMIT_LOGIN_BLOCK_MINUTES: 60
-      RATE_LIMIT_API_REQUESTS_PER_MINUTE: 60
-      
-      # CORS configuration (restrictive for production)
-      CORS_ALLOWED_ORIGINS: "https://yourdomain.com,https://app.yourdomain.com"
-      CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS"
-      CORS_ALLOWED_HEADERS: "Content-Type,Authorization,X-Requested-With"
-      
-      # Logging configuration (structured for production)
-      LOG_FORMAT: json
-      LOG_FILE_ENABLED: true
-      LOG_FILE_PATH: /var/log/auth-microservice/app.log
-      LOG_FILE_MAX_SIZE: 50MB
-      LOG_FILE_MAX_FILES: 10
-      
-      # External services (enabled for production)
-      EMAIL_ENABLED: true
-      GEOLOCATION_ENABLED: true
-      
-      # Production features
-      DEV_MODE: false
-      DEV_AUTO_RELOAD: false
-      DEV_MOCK_EXTERNAL_SERVICES: false
-    
-    # Production-specific volumes
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - auth-network
+    restart: always
     volumes:
       - /var/log/auth-microservice:/var/log/auth-microservice
       - /etc/ssl/certs:/etc/ssl/certs:ro
-    
-    # Only expose necessary ports
-    ports:
-      - "8080:8080"
     
     # Production resource limits
     deploy:
@@ -74,9 +52,6 @@ services:
           cpus: '1.0'
           memory: 1G
     
-    # Production restart policy
-    restart: always
-    
     # Health check for production
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
@@ -85,12 +60,29 @@ services:
       retries: 3
       start_period: 40s
 
+  # PostgreSQL Database
   postgres:
+    container_name: authentication_db
+    image: postgres:15-alpine
+    env_file:
+      - .env.production
     environment:
-      POSTGRES_DB: auth_microservice_prod
-      POSTGRES_USER: auth_user_prod
-      # POSTGRES_PASSWORD should be provided via environment variable or secrets
-    
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - /var/backups/postgres:/var/backups/postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - auth-network
+    restart: always
     # Production PostgreSQL configuration
     command: >
       postgres
@@ -117,16 +109,15 @@ services:
         reservations:
           cpus: '1.0'
           memory: 1G
-    
-    # Production volumes with backup considerations
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - /var/backups/postgres:/var/backups/postgres
-    
-    restart: always
 
+  # Redis Cache
   redis:
-    # Production Redis configuration
+    container_name: authentication_redis
+    image: redis:7-alpine
+    env_file:
+      - .env.production
+    volumes:
+      - redis_data:/data
     command: >
       redis-server
       --appendonly yes
@@ -136,6 +127,14 @@ services:
       --save 900 1
       --save 300 10
       --save 60 10000
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - auth-network
+    restart: always
     
     # Production resource limits
     deploy:
@@ -146,10 +145,169 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
-    
-    restart: always
 
-# Production-specific volumes with backup considerations
+  # Prometheus (for monitoring)
+  prometheus:
+    container_name: auth_prometheus
+    image: prom/prometheus:latest
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--storage.tsdb.retention.time=90d'
+    networks:
+      - auth-network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # AlertManager (for monitoring)
+  alertmanager:
+    container_name: auth_alertmanager
+    image: prom/alertmanager:latest
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+    networks:
+      - auth-network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # Grafana (for monitoring)
+  grafana:
+    container_name: auth_grafana
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_USER: admin
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+      GF_SERVER_ROOT_URL: https://grafana.yourdomain.com
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    networks:
+      - auth-network
+    restart: always
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Node Exporter (for system metrics)
+  node-exporter:
+    container_name: auth_node_exporter
+    image: prom/node-exporter:latest
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($|/)'
+    networks:
+      - auth-network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # PostgreSQL Exporter (for database metrics)
+  postgres-exporter:
+    container_name: auth_postgres_exporter
+    image: prometheuscommunity/postgres-exporter:latest
+    ports:
+      - "9187:9187"
+    env_file:
+      - .env.production
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable"
+    networks:
+      - auth-network
+    restart: always
+    depends_on:
+      - postgres
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # Redis Exporter (for cache metrics)
+  redis-exporter:
+    container_name: auth_redis_exporter
+    image: oliver006/redis_exporter:latest
+    ports:
+      - "9121:9121"
+    env_file:
+      - .env.production
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+    networks:
+      - auth-network
+    restart: always
+    depends_on:
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
 volumes:
   postgres_data:
     driver: local
@@ -163,3 +321,10 @@ volumes:
       type: none
       o: bind
       device: /var/lib/docker/volumes/auth_redis_data
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
+
+networks:
+  auth-network:
+    driver: bridge

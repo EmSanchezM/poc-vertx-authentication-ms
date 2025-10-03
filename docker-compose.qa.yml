@@ -3,85 +3,44 @@
 # =============================================================================
 # Usage: docker-compose -f docker-compose.yml -f docker-compose.qa.yml up
 
-version: '3.8'
-
 services:
+  # Auth Microservice
   auth-service:
+    container_name: authentication-ms
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+      - "9090:9090"  # Metrics port
+    env_file:
+      - .env.qa
     environment:
-      # QA overrides
-      APP_ENV: qa
-      LOG_LEVEL: INFO
+      # Database configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
       
-      # Database configuration for QA
-      DB_NAME: auth_microservice_qa
-      DB_USERNAME: auth_user_qa
-      DB_PASSWORD: qa_secure_password_123
-      DB_POOL_MAX_SIZE: 30
-      DB_POOL_MAX_WAIT_QUEUE: 75
-      DB_HEALTH_CHECK_INTERVAL: 30000
+      # Redis configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       
-      # Redis configuration for QA
-      REDIS_PASSWORD: qa_redis_password_123
+      # Monitoring configuration
+      METRICS_ENABLED: true
+      METRICS_PORT: 9090
+      HEALTH_CHECK_ENABLED: true
+      HEALTH_CHECK_PORT: 8081
       
-      # JWT configuration for QA
-      JWT_SECRET: qa-jwt-secret-key-for-testing-environment-should-be-secure-but-not-production
-      JWT_ISSUER: auth-microservice-qa
-      JWT_ACCESS_TOKEN_EXPIRY: 1800
-      JWT_REFRESH_TOKEN_EXPIRY: 86400
-      
-      # Security configuration (moderate for QA)
-      BCRYPT_ROUNDS: 10
-      RATE_LIMIT_LOGIN_ATTEMPTS: 8
-      RATE_LIMIT_LOGIN_BLOCK_MINUTES: 45
-      RATE_LIMIT_API_REQUESTS_PER_MINUTE: 120
-      
-      # CORS configuration (moderate for QA)
-      CORS_ALLOWED_ORIGINS: "https://qa.yourdomain.com,https://qa-app.yourdomain.com,http://localhost:3000"
-      CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS"
-      CORS_ALLOWED_HEADERS: "Content-Type,Authorization,X-Requested-With,X-Test-Header"
-      
-      # Logging configuration (detailed for QA)
-      LOG_FORMAT: json
-      LOG_FILE_ENABLED: true
-      LOG_FILE_PATH: /var/log/auth-microservice/qa.log
-      LOG_FILE_MAX_SIZE: 20MB
-      LOG_FILE_MAX_FILES: 5
-      
-      # External services (test configuration)
-      EMAIL_ENABLED: true
-      EMAIL_SMTP_HOST: smtp.mailtrap.io
-      EMAIL_SMTP_PORT: 587
-      EMAIL_SMTP_USERNAME: qa_email_username
-      EMAIL_SMTP_PASSWORD: qa_email_password
-      EMAIL_FROM_ADDRESS: qa-noreply@yourdomain.com
-      EMAIL_FROM_NAME: Auth Microservice QA
-      
-      GEOLOCATION_ENABLED: true
-      GEOLOCATION_API_KEY: qa_geolocation_api_key
-      
-      # QA features
-      DEV_MODE: false
-      DEV_AUTO_RELOAD: false
-      DEV_MOCK_EXTERNAL_SERVICES: false
-      
-      # QA specific configuration
-      QA_SEED_TEST_DATA: true
-      QA_RESET_DB_ON_STARTUP: false
-      QA_ENABLE_TEST_ENDPOINTS: true
-      QA_ENABLE_PERFORMANCE_LOGGING: true
-      QA_SLOW_QUERY_THRESHOLD: 1000
-      QA_ENABLE_SECURITY_HEADERS: true
-      QA_ENABLE_AUDIT_LOGGING: true
-    
-    # QA-specific volumes
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - auth-network
+    restart: unless-stopped
     volumes:
       - ./logs:/app/logs
       - qa_logs:/var/log/auth-microservice
-    
-    # Expose ports for testing
-    ports:
-      - "8080:8080"
-      - "9090:9090"  # Metrics port for monitoring
     
     # QA resource limits (moderate)
     deploy:
@@ -101,12 +60,30 @@ services:
       retries: 3
       start_period: 40s
 
+  # PostgreSQL Database
   postgres:
+    container_name: authentication_db
+    image: postgres:15-alpine
+    env_file:
+      - .env.qa
     environment:
-      POSTGRES_DB: auth_microservice_qa
-      POSTGRES_USER: auth_user_qa
-      POSTGRES_PASSWORD: qa_secure_password_123
-    
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - auth-network
+    restart: unless-stopped
     # QA PostgreSQL configuration (balanced performance)
     command: >
       postgres
@@ -125,10 +102,6 @@ services:
       -c log_min_duration_statement=500
       -c log_statement=mod
     
-    # Expose PostgreSQL port for QA testing
-    ports:
-      - "5432:5432"
-    
     # QA resource limits
     deploy:
       resources:
@@ -139,25 +112,34 @@ services:
           cpus: '0.5'
           memory: 512M
 
+  # Redis Cache
   redis:
-    environment:
-      REDIS_PASSWORD: qa_redis_password_123
-    
-    # QA Redis configuration
+    container_name: authentication_redis
+    image: redis:7-alpine
+    env_file:
+      - .env.qa
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
     command: >
       redis-server
       --appendonly yes
-      --requirepass qa_redis_password_123
+      --requirepass ${REDIS_PASSWORD}
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
       --save 900 1
       --save 300 10
       --save 60 10000
       --loglevel notice
-    
-    # Expose Redis port for QA testing
-    ports:
-      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - auth-network
+    restart: unless-stopped
     
     # QA resource limits
     deploy:
@@ -169,11 +151,176 @@ services:
           cpus: '0.25'
           memory: 256M
 
-# QA-specific volumes
+  # Prometheus (for monitoring)
+  prometheus:
+    container_name: auth_prometheus
+    image: prom/prometheus:latest
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--storage.tsdb.retention.time=30d'
+    networks:
+      - auth-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # AlertManager (for monitoring)
+  alertmanager:
+    container_name: auth_alertmanager
+    image: prom/alertmanager:latest
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+    networks:
+      - auth-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # Grafana (for monitoring)
+  grafana:
+    container_name: auth_grafana
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_USER: admin
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+      GF_SERVER_ROOT_URL: https://qa-grafana.yourdomain.com
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    networks:
+      - auth-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Node Exporter (for system metrics)
+  node-exporter:
+    container_name: auth_node_exporter
+    image: prom/node-exporter:latest
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($|/)'
+    networks:
+      - auth-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # PostgreSQL Exporter (for database metrics)
+  postgres-exporter:
+    container_name: auth_postgres_exporter
+    image: prometheuscommunity/postgres-exporter:latest
+    ports:
+      - "9187:9187"
+    env_file:
+      - .env.qa
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable"
+    networks:
+      - auth-network
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # Redis Exporter (for cache metrics)
+  redis-exporter:
+    container_name: auth_redis_exporter
+    image: oliver006/redis_exporter:latest
+    ports:
+      - "9121:9121"
+    env_file:
+      - .env.qa
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+    networks:
+      - auth-network
+    restart: unless-stopped
+    depends_on:
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
 volumes:
   postgres_data:
-    driver: local
   redis_data:
-    driver: local
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
   qa_logs:
-    driver: local
+
+networks:
+  auth-network:
+    driver: bridge
