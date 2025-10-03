@@ -76,6 +76,7 @@ public class ApplicationBootstrap {
     private AuthController authController;
     private UserController userController;
     private MonitoringController monitoringController;
+    private com.auth.microservice.infrastructure.adapter.web.DebugController debugController;
     
     // Monitoreo
     private MetricsService metricsService;
@@ -333,6 +334,9 @@ public class ApplicationBootstrap {
             configFactory
         );
         
+        // Inicializar DebugController después de que los servicios de monitoreo estén disponibles
+        // Nota: Se inicializa aquí pero se configurará en initializeMonitoring() cuando healthCheckService esté listo
+        
         logger.info("Controladores inicializados: Auth, User, Monitoring");
         return Future.succeededFuture();
     }
@@ -346,6 +350,12 @@ public class ApplicationBootstrap {
         this.metricsService = new MetricsService(vertx);
         this.healthCheckService = new HealthCheckService(vertx, databaseConfig, redisClient);
         
+        // Inicializar DebugController ahora que tenemos todos los servicios necesarios
+        this.debugController = new com.auth.microservice.infrastructure.adapter.web.DebugController(
+            configFactory.getConfigService(),
+            healthCheckService
+        );
+        
         // Inicializar configuración web
         this.webRouterConfiguration = new WebRouterConfiguration(
             vertx, tokenService, cqrsConfiguration.getCommandBus(), 
@@ -353,7 +363,7 @@ public class ApplicationBootstrap {
             geoLocationService, metricsService
         );
         
-        logger.info("Servicios de monitoreo y configuración web inicializados");
+        logger.info("Servicios de monitoreo, DebugController y configuración web inicializados");
         return Future.succeededFuture();
     }
     
@@ -384,7 +394,7 @@ public class ApplicationBootstrap {
         Router router = webRouterConfiguration.configureMainRouter();
         
         // Configurar rutas de controladores
-        webRouterConfiguration.configureControllerRoutes(router, authController, userController, monitoringController);
+        webRouterConfiguration.configureControllerRoutes(router, authController, userController, monitoringController, debugController);
         
         logger.info("Router configurado exitosamente");
         return router;

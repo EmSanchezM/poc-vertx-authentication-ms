@@ -230,7 +230,8 @@ public class WebRouterConfiguration {
     public void configureControllerRoutes(Router router, 
                                          com.auth.microservice.infrastructure.adapter.web.AuthController authController,
                                          com.auth.microservice.infrastructure.adapter.web.UserController userController,
-                                         com.auth.microservice.infrastructure.adapter.rest.MonitoringController monitoringController) {
+                                         com.auth.microservice.infrastructure.adapter.rest.MonitoringController monitoringController,
+                                         com.auth.microservice.infrastructure.adapter.web.DebugController debugController) {
         
         // Configurar rutas de autenticación (públicas)
         authController.configureRoutes(router);
@@ -246,7 +247,33 @@ public class WebRouterConfiguration {
         // Configurar rutas de monitoreo
         monitoringController.configureRoutes(router);
         
+        // Configurar rutas de debug (solo en desarrollo o con autenticación admin)
+        configureDebugRoutes(router, debugController);
+        
         logger.info("All controller routes configured successfully");
+    }
+    
+    /**
+     * Configura rutas de debug con seguridad apropiada
+     */
+    private void configureDebugRoutes(Router router, com.auth.microservice.infrastructure.adapter.web.DebugController debugController) {
+        String environment = System.getenv().getOrDefault("APP_ENV", "development");
+        
+        if ("development".equalsIgnoreCase(environment)) {
+            // En desarrollo, permitir acceso directo a debug endpoints
+            debugController.configureRoutes(router);
+            logger.info("Debug routes configured for development environment");
+        } else {
+            // En producción, requerir autenticación admin
+            Router debugRouter = Router.router(vertx);
+            debugRouter.route().handler(createAuthenticationMiddleware());
+            debugRouter.route().handler(createAuthorizationMiddleware("admin:debug"));
+            
+            debugController.configureRoutes(debugRouter);
+            router.mountSubRouter("", debugRouter);
+            
+            logger.info("Debug routes configured with admin authentication for {} environment", environment);
+        }
     }
     
 
