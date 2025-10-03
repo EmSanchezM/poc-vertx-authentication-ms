@@ -1,6 +1,7 @@
 package com.auth.microservice.infrastructure.config;
 
 import com.auth.microservice.application.handler.*;
+import com.auth.microservice.application.handler.GetAdminReportsQueryHandler;
 import com.auth.microservice.common.cqrs.CommandHandler;
 import com.auth.microservice.common.cqrs.CqrsConfiguration;
 import com.auth.microservice.common.cqrs.QueryHandler;
@@ -75,6 +76,7 @@ public class ApplicationBootstrap {
     // Controladores
     private AuthController authController;
     private UserController userController;
+    private com.auth.microservice.infrastructure.adapter.web.AdminController adminController;
     private MonitoringController monitoringController;
     private com.auth.microservice.infrastructure.adapter.web.DebugController debugController;
     
@@ -296,7 +298,8 @@ public class ApplicationBootstrap {
             new GetRolesQueryHandler(roleRepository, cacheService),
             new GetRoleByIdQueryHandler(roleRepository, cacheService),
             new GetActiveSessionsQueryHandler(sessionRepository, cacheService),
-            new GetSessionByTokenQueryHandler(sessionRepository, cacheService)
+            new GetSessionByTokenQueryHandler(sessionRepository, cacheService),
+            new GetAdminReportsQueryHandler(userRepository, roleRepository, sessionRepository)
         );
         
         // Registrar todos los handlers
@@ -328,6 +331,12 @@ public class ApplicationBootstrap {
             authMiddleware
         );
         
+        this.adminController = new com.auth.microservice.infrastructure.adapter.web.AdminController(
+            cqrsConfiguration.getCommandBus(),
+            cqrsConfiguration.getQueryBus(),
+            authMiddleware
+        );
+        
         this.monitoringController = new MonitoringController(
             healthCheckService,
             metricsService,
@@ -337,7 +346,7 @@ public class ApplicationBootstrap {
         // Inicializar DebugController después de que los servicios de monitoreo estén disponibles
         // Nota: Se inicializa aquí pero se configurará en initializeMonitoring() cuando healthCheckService esté listo
         
-        logger.info("Controladores inicializados: Auth, User, Monitoring");
+        logger.info("Controladores inicializados: Auth, User, Admin, Monitoring");
         return Future.succeededFuture();
     }
     
@@ -394,7 +403,7 @@ public class ApplicationBootstrap {
         Router router = webRouterConfiguration.configureMainRouter();
         
         // Configurar rutas de controladores
-        webRouterConfiguration.configureControllerRoutes(router, authController, userController, monitoringController, debugController);
+        webRouterConfiguration.configureControllerRoutes(router, authController, userController, adminController, monitoringController, debugController);
         
         logger.info("Router configurado exitosamente");
         return router;
