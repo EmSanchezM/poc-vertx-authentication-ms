@@ -322,12 +322,67 @@ public class ConfigService {
             configCache.put(key, resolvedValue);
         }
         
+        addCriticalEnvironmentVariablesToCache();
+        
         logger.info("Configuración inicializada con {} propiedades", configCache.size());
         
         // Registrar los valores finales resueltos (ocultando passwords y secretos)
         logFinalResolvedValues();
         
         logger.info("=== FIN INICIALIZACIÓN CONFIGURACIÓN ===");
+    }
+    
+    /**
+     * Agrega variables de entorno críticas directamente al cache, sobrescribiendo valores existentes
+     * cuando las variables de entorno están disponibles. Esto resuelve el problema donde las variables 
+     * de entorno no se mapean correctamente a las claves de configuración esperadas por la aplicación.
+     */
+    private void addCriticalEnvironmentVariablesToCache() {
+        logger.info("=== AGREGANDO VARIABLES DE ENTORNO CRÍTICAS AL CACHE ===");
+        
+        // Mapeo de variables de entorno a claves de configuración
+        Map<String, String> envToConfigMapping = Map.of(
+            "DB_HOST", "db.host",
+            "DB_PORT", "db.port", 
+            "DB_NAME", "db.name",
+            "DB_USERNAME", "db.username",
+            "DB_PASSWORD", "db.password",
+            "REDIS_HOST", "redis.host",
+            "REDIS_PORT", "redis.port",
+            "JWT_SECRET", "jwt.secret"
+        );
+        
+        int overriddenCount = 0;
+        for (Map.Entry<String, String> mapping : envToConfigMapping.entrySet()) {
+            String envVar = mapping.getKey();
+            String configKey = mapping.getValue();
+            
+            // Verificar si la variable de entorno está disponible
+            String envValue = System.getenv(envVar);
+            if (envValue != null && !envValue.trim().isEmpty()) {
+                String existingValue = configCache.get(configKey);
+                
+                // Sobrescribir el valor en el cache con la variable de entorno
+                configCache.put(configKey, envValue);
+                overriddenCount++;
+                
+                String logEnvValue = isSensitiveKey(configKey) ? "***" : envValue;
+                String logExistingValue = isSensitiveKey(configKey) ? "***" : existingValue;
+                
+                if (existingValue != null && !existingValue.equals(envValue)) {
+                    logger.info("  🔄 Sobrescrito en cache: {} = {} (era: {}) [desde variable de entorno {}]", 
+                        configKey, logEnvValue, logExistingValue, envVar);
+                } else {
+                    logger.info("  ✅ Agregado al cache: {} = {} (desde variable de entorno {})", 
+                        configKey, logEnvValue, envVar);
+                }
+            } else {
+                logger.debug("  ⏭️ Variable de entorno {} no definida o vacía", envVar);
+            }
+        }
+        
+        logger.info("Variables de entorno procesadas: {}", overriddenCount);
+        logger.info("=== FIN AGREGADO DE VARIABLES DE ENTORNO ===");
     }
     
     /**
