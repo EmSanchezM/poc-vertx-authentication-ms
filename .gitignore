@@ -27,6 +27,7 @@ logs/
 .env.development
 .env.qa
 .env.production
+.env.*
 application-local.properties
 application-dev.properties
 
