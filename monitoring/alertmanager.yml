@@ -1,26 +1,13 @@
 global:
   smtp_smarthost: 'localhost:587'
   smtp_from: 'alerts@auth-microservice.com'
-  smtp_auth_username: 'alerts@auth-microservice.com'
-  smtp_auth_password: 'your-email-password'
 
 route:
-  group_by: ['alertname', 'service']
+  group_by: ['alertname']
   group_wait: 10s
   group_interval: 10s
   repeat_interval: 1h
   receiver: 'web.hook'
-  routes:
-    - match:
-        alert_type: security
-      receiver: 'security-team'
-      group_wait: 5s
-      repeat_interval: 15m
-    - match:
-        severity: critical
-      receiver: 'critical-alerts'
-      group_wait: 5s
-      repeat_interval: 30m
 
 receivers:
   - name: 'web.hook'
@@ -28,54 +15,4 @@ receivers:
       - url: 'http://host.docker.internal:5001/webhook'
         send_resolved: true
 
-  - name: 'security-team'
-    email_configs:
-      - to: 'security@company.com'
-        subject: 'SECURITY ALERT: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
-        html: |
-          {{ range .Alerts }}
-          <p><strong>Alert:</strong> {{ .Annotations.summary }}</p>
-          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
-          <p><strong>Service:</strong> {{ .Labels.service }}</p>
-          <p><strong>Severity:</strong> {{ .Labels.severity }}</p>
-          <p><strong>Country:</strong> {{ .Labels.country }}</p>
-          <p><strong>Time:</strong> {{ .StartsAt }}</p>
-          <hr>
-          {{ end }}
-    # slack_configs:
-    #   - api_url: 'YOUR_SLACK_WEBHOOK_URL'
-    #     channel: '#security-alerts'
-    #     title: 'Security Alert: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
-    #     text: |
-    #       {{ range .Alerts }}
-    #       *Alert:* {{ .Annotations.summary }}
-    #       *Description:* {{ .Annotations.description }}
-    #       *Service:* {{ .Labels.service }}
-    #       *Severity:* {{ .Labels.severity }}
-    #       *Country:* {{ .Labels.country }}
-    #       *Time:* {{ .StartsAt }}
-    #       {{ end }}
-
-  - name: 'critical-alerts'
-    email_configs:
-      - to: 'ops@company.com'
-        subject: 'CRITICAL ALERT: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
-        html: |
-          {{ range .Alerts }}
-          <p><strong>Alert:</strong> {{ .Annotations.summary }}</p>
-          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
-          <p><strong>Service:</strong> {{ .Labels.service }}</p>
-          <p><strong>Severity:</strong> {{ .Labels.severity }}</p>
-          <p><strong>Time:</strong> {{ .StartsAt }}</p>
-          <hr>
-          {{ end }}
-    # pagerduty_configs:
-    #   - routing_key: 'YOUR_PAGERDUTY_INTEGRATION_KEY'
-    #     description: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
-
-inhibit_rules:
-  - source_match:
-      severity: 'critical'
-    target_match:
-      severity: 'warning'
-    equal: ['alertname', 'service']
+inhibit_rules: []
