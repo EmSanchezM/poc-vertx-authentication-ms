@@ -38,6 +38,9 @@ dependencies {
     implementation "org.flywaydb:flyway-core:10.4.1"
     implementation "org.flywaydb:flyway-database-postgresql:10.4.1"
     
+    // SCRAM authentication for PostgreSQL
+    implementation "com.ongres.scram:client:2.1"
+    
     // Redis
     implementation "io.vertx:vertx-redis-client:${vertxVersion}"
     
@@ -49,6 +52,7 @@ dependencies {
     // Password hashing
     implementation "org.springframework.security:spring-security-crypto:6.2.1"
     implementation "org.bouncycastle:bcprov-jdk18on:1.77"
+    implementation "commons-logging:commons-logging:1.2"
     
     // Validation
     implementation "jakarta.validation:jakarta.validation-api:3.0.2"

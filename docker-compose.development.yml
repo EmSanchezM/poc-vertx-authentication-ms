@@ -2,6 +2,7 @@
 # AUTH MICROSERVICE - DEVELOPMENT DOCKER COMPOSE
 # =============================================================================
 # Usage: docker-compose -f docker-compose.yml -f docker-compose.development.yml up
+# Environment variables are loaded from .env.development file
 
 services:
   # Auth Microservice
@@ -11,80 +12,15 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "${SERVER_PORT}:${SERVER_PORT}"
       - "5005:5005"  # Debug port
-      - "9090:9090"  # Metrics port
+      - "${METRICS_PORT}:${METRICS_PORT}"  # Metrics port
+    env_file:
+      - .env.development
     environment:
-      # Application configuration
-      APP_ENV: development
-      APP_NAME: auth-microservice
-      SERVER_PORT: 8080
-      LOG_LEVEL: DEBUG
-      
-      # Database configuration
+      # Override specific Docker networking values
       DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: auth_microservice_dev
-      DB_USERNAME: auth_user
-      DB_PASSWORD: dev_password_123
-      DB_POOL_MAX_SIZE: 10
-      DB_POOL_MAX_WAIT_QUEUE: 25
-      DB_CONNECTION_TIMEOUT: 30000
-      DB_IDLE_TIMEOUT: 600000
-      DB_RECONNECT_ATTEMPTS: 3
-      DB_RECONNECT_INTERVAL: 1000
-      DB_HEALTH_CHECK_INTERVAL: 15000
-      
-      # Redis configuration
       REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: dev_redis_password
-      REDIS_DATABASE: 0
-      REDIS_CONNECTION_TIMEOUT: 5000
-      REDIS_COMMAND_TIMEOUT: 3000
-      
-      # JWT configuration (longer expiry for development convenience)
-      JWT_SECRET: dev-jwt-secret-key-for-development-only-not-secure-enough-for-production
-      JWT_ISSUER: auth-microservice-dev
-      JWT_ACCESS_TOKEN_EXPIRY: 3600
-      JWT_REFRESH_TOKEN_EXPIRY: 86400
-      
-      # Security configuration (relaxed for development)
-      BCRYPT_ROUNDS: 8
-      RATE_LIMIT_ENABLED: true
-      RATE_LIMIT_LOGIN_ATTEMPTS: 10
-      RATE_LIMIT_LOGIN_WINDOW_MINUTES: 15
-      RATE_LIMIT_LOGIN_BLOCK_MINUTES: 30
-      RATE_LIMIT_API_REQUESTS_PER_MINUTE: 200
-      
-      # CORS configuration (permissive for development)
-      CORS_ENABLED: true
-      CORS_ALLOWED_ORIGINS: "*"
-      CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS,PATCH"
-      CORS_ALLOWED_HEADERS: "*"
-      CORS_MAX_AGE: 3600
-      
-      # Monitoring configuration
-      METRICS_ENABLED: true
-      METRICS_PORT: 9090
-      HEALTH_CHECK_ENABLED: true
-      HEALTH_CHECK_PORT: 8081
-      
-      # Logging configuration (verbose for development)
-      LOG_FORMAT: pretty
-      LOG_FILE_ENABLED: true
-      LOG_FILE_PATH: logs/auth-microservice-dev.log
-      LOG_FILE_MAX_SIZE: 5MB
-      LOG_FILE_MAX_FILES: 3
-      
-      # External services (disabled for development)
-      EMAIL_ENABLED: false
-      GEOLOCATION_ENABLED: false
-      
-      # Development features
-      DEV_MODE: true
-      DEV_AUTO_RELOAD: true
-      DEV_MOCK_EXTERNAL_SERVICES: true
       
     depends_on:
       postgres:
@@ -104,17 +40,17 @@ services:
     container_name: authentication_db
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: auth_microservice_dev
-      POSTGRES_USER: auth_user
-      POSTGRES_PASSWORD: dev_password_123
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     ports:
-      - "5432:5432"
+      - "${DB_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_microservice_dev"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -134,14 +70,14 @@ services:
     container_name: authentication_redis
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT}:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --requirepass dev_redis_password --loglevel verbose
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --loglevel verbose
     environment:
-      REDIS_PASSWORD: dev_redis_password
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "dev_redis_password", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -236,7 +172,7 @@ services:
     ports:
       - "9187:9187"
     environment:
-      DATA_SOURCE_NAME: "postgresql://auth_user:dev_password_123@postgres:5432/auth_microservice_dev?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable"
     networks:
       - auth-network
     restart: unless-stopped
@@ -251,7 +187,7 @@ services:
       - "9121:9121"
     environment:
       REDIS_ADDR: "redis://redis:6379"
-      REDIS_PASSWORD: "dev_redis_password"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
     networks:
       - auth-network
     restart: unless-stopped
