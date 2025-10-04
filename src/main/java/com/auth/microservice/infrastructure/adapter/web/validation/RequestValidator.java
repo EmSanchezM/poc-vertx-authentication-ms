@@ -53,12 +53,16 @@ public class RequestValidator {
     public static ValidationResult validateLoginRequest(JsonObject body) {
         List<String> errors = new ArrayList<>();
         
-        // Validar email
-        String email = body.getString("email");
-        if (email == null || email.trim().isEmpty()) {
-            errors.add("Email is required");
-        } else if (!isValidEmail(email)) {
-            errors.add("Email format is invalid");
+        // Validar usernameOrEmail
+        String usernameOrEmail = body.getString("usernameOrEmail");
+        if (usernameOrEmail == null || usernameOrEmail.trim().isEmpty()) {
+            errors.add("Username or email is required");
+        } else {
+            // Si contiene @, validar como email
+            if (usernameOrEmail.contains("@") && !isValidEmail(usernameOrEmail)) {
+                errors.add("Email format is invalid");
+            }
+            // Si no contiene @, es username - no necesita validación especial de formato
         }
         
         // Validar password

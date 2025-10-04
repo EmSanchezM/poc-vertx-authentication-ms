@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 /**
  * Tests de integración para el stack de monitoreo
@@ -42,8 +43,12 @@ class MonitoringIntegrationTest {
         // Mock health check service (sin dependencias reales)
         healthCheckService = createMockHealthCheckService(vertx);
         
+        // Mock configuration factory
+        com.auth.microservice.infrastructure.config.ConfigurationFactory configFactory = 
+            mock(com.auth.microservice.infrastructure.config.ConfigurationFactory.class);
+        
         // Crear controller de monitoreo
-        monitoringController = new MonitoringController(healthCheckService, metricsService, vertx);
+        monitoringController = new MonitoringController(healthCheckService, metricsService, configFactory);
         
         // Configurar router
         Router router = Router.router(vertx);

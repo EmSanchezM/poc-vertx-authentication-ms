@@ -9,6 +9,7 @@ import com.auth.microservice.common.cqrs.QueryBus;
 import com.auth.microservice.domain.model.Email;
 import com.auth.microservice.domain.model.Role;
 import com.auth.microservice.domain.model.User;
+import java.time.LocalDateTime;
 import com.auth.microservice.domain.service.JWTService;
 import com.auth.microservice.domain.service.RateLimitService;
 import io.vertx.core.Future;
@@ -92,7 +93,7 @@ class AuthControllerTest {
             .thenReturn(Future.succeededFuture(mockResult));
         
         JsonObject loginRequest = new JsonObject()
-            .put("email", "test@example.com")
+            .put("usernameOrEmail", "test@example.com")
             .put("password", "TestPassword123!");
         
         // Act & Assert
@@ -121,11 +122,78 @@ class AuthControllerTest {
     }
     
     @Test
+    void testLoginEndpoint_WithUsername_Success(Vertx vertx, VertxTestContext testContext) {
+        // Arrange
+        User mockUser = createMockUser();
+        JWTService.TokenPair mockTokenPair = new JWTService.TokenPair(
+            "access-token",
+            "refresh-token",
+            LocalDateTime.now().plusHours(1),
+            LocalDateTime.now().plusDays(7)
+        );
+        AuthenticationResult mockResult = AuthenticationResult.success(mockUser, mockTokenPair);
+        
+        when(commandBus.<AuthenticationResult>send(any(AuthenticateCommand.class)))
+            .thenReturn(Future.succeededFuture(mockResult));
+        
+        JsonObject loginRequest = new JsonObject()
+            .put("usernameOrEmail", "testuser")
+            .put("password", "TestPassword123!");
+        
+        // Act & Assert
+        webClient.request(HttpMethod.POST, port, "localhost", "/auth/login")
+            .sendJsonObject(loginRequest)
+            .onComplete(testContext.succeeding(response -> testContext.verify(() -> {
+                assertEquals(200, response.statusCode());
+                
+                JsonObject responseBody = response.bodyAsJsonObject();
+                assertTrue(responseBody.getBoolean("success"));
+                
+                JsonObject data = responseBody.getJsonObject("data");
+                assertNotNull(data);
+                assertEquals("access-token", data.getString("accessToken"));
+                assertEquals("refresh-token", data.getString("refreshToken"));
+                assertEquals("Bearer", data.getString("tokenType"));
+                
+                JsonObject user = data.getJsonObject("user");
+                assertNotNull(user);
+                assertEquals("test@example.com", user.getString("email"));
+                assertEquals("John", user.getString("firstName"));
+                assertEquals("Doe", user.getString("lastName"));
+                
+                testContext.completeNow();
+            })));
+    }
+
+    @Test
     void testLoginEndpoint_InvalidRequest(Vertx vertx, VertxTestContext testContext) {
         // Arrange
         JsonObject invalidRequest = new JsonObject()
-            .put("email", "invalid-email")
+            .put("usernameOrEmail", "invalid-email")
             .put("password", ""); // Empty password
+        
+        // Act & Assert
+        webClient.request(HttpMethod.POST, port, "localhost", "/auth/login")
+            .sendJsonObject(invalidRequest)
+            .onComplete(testContext.succeeding(response -> testContext.verify(() -> {
+                assertEquals(400, response.statusCode());
+                
+                JsonObject responseBody = response.bodyAsJsonObject();
+                assertFalse(responseBody.getBoolean("success"));
+                
+                JsonObject error = responseBody.getJsonObject("error");
+                assertNotNull(error);
+                assertEquals("VALIDATION_ERROR", error.getString("code"));
+                
+                testContext.completeNow();
+            })));
+    }
+
+    @Test
+    void testLoginEndpoint_MissingUsernameOrEmail(Vertx vertx, VertxTestContext testContext) {
+        // Arrange
+        JsonObject invalidRequest = new JsonObject()
+            .put("password", "TestPassword123!"); // Missing usernameOrEmail
         
         // Act & Assert
         webClient.request(HttpMethod.POST, port, "localhost", "/auth/login")
@@ -280,16 +348,19 @@ class AuthControllerTest {
         try {
             User user = new User(
                 UUID.randomUUID(),
+                "testuser",
                 new Email("test@example.com"),
                 "hashedPassword",
                 "John",
                 "Doe",
-                true
+                true,
+                LocalDateTime.now(),
+                LocalDateTime.now()
             );
             
             // Add a mock role
-            Role userRole = new Role(UUID.randomUUID(), "USER", "Standard user role", Set.of());
-            user.assignRole(userRole);
+            Role userRole = new Role(UUID.randomUUID(), "USER", "Standard user role", LocalDateTime.now());
+            user.addRole(userRole);
             
             return user;
         } catch (Exception e) {

@@ -41,6 +41,13 @@ public interface UserRepository extends Repository<User, UUID> {
     Future<Optional<User>> findByEmailWithRoles(Email email);
     
     /**
+     * Find user by username with their roles loaded
+     * @param username Username
+     * @return Future containing optional user with roles
+     */
+    Future<Optional<User>> findByUsernameWithRoles(String username);
+    
+    /**
      * Find all users with pagination
      * @param pagination Pagination parameters
      * @return Future containing paginated list of users

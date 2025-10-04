@@ -61,6 +61,14 @@ public class UserRepositoryImpl extends AbstractRepository<User, UUID> implement
         WHERE u.email = $1
         """;
     
+    private static final String FIND_BY_USERNAME_WITH_ROLES_SQL = """
+        SELECT u.*, r.id as role_id, r.name as role_name, r.description as role_description, r.created_at as role_created_at
+        FROM users u
+        LEFT JOIN user_roles ur ON u.id = ur.user_id
+        LEFT JOIN roles r ON ur.role_id = r.id
+        WHERE u.username = $1
+        """;
+    
     private static final String FIND_ALL_PAGINATED_SQL = """
         SELECT * FROM users 
         ORDER BY %s %s
@@ -214,6 +222,18 @@ public class UserRepositoryImpl extends AbstractRepository<User, UUID> implement
                 return Optional.of(mapUserWithRoles(rows));
             })
             .onFailure(error -> logger.error("Failed to find user with roles by email: {}", email.getValue(), error));
+    }
+    
+    @Override
+    public Future<Optional<User>> findByUsernameWithRoles(String username) {
+        return executeQuery(FIND_BY_USERNAME_WITH_ROLES_SQL, Tuple.of(username))
+            .map(rows -> {
+                if (rows.size() == 0) {
+                    return Optional.<User>empty();
+                }
+                return Optional.of(mapUserWithRoles(rows));
+            })
+            .onFailure(error -> logger.error("Failed to find user with roles by username: {}", username, error));
     }
     
     @Override

@@ -72,7 +72,7 @@ public class AuthController {
      * 
      * Expected request body:
      * {
-     *   "email": "user@example.com",
+     *   "usernameOrEmail": "user@example.com",
      *   "password": "userPassword"
      * }
      */
@@ -92,18 +92,18 @@ public class AuthController {
         RequestValidator.ValidationResult loginValidation = RequestValidator.validateLoginRequest(requestBody);
         if (!loginValidation.isValid()) {
             SecurityLoggingMiddleware.logFailedAuthentication(context, 
-                requestBody.getString("email", "unknown"), "Invalid request format");
+                requestBody.getString("usernameOrEmail", "unknown"), "Invalid request format");
             loginValidation.sendErrorResponse(context);
             return;
         }
         
-        String email = requestBody.getString("email");
+        String usernameOrEmail = requestBody.getString("usernameOrEmail");
         String password = requestBody.getString("password");
         String clientIp = RequestUtil.getClientIp(context);
         String userAgent = RequestUtil.getUserAgent(context);
         
         // Create authentication command
-        AuthenticateCommand command = new AuthenticateCommand(email, password, clientIp, userAgent);
+        AuthenticateCommand command = new AuthenticateCommand(usernameOrEmail, password, clientIp, userAgent);
         
         // Execute authentication through command bus
         commandBus.<AuthenticationResult>send(command)
@@ -111,13 +111,13 @@ public class AuthController {
                 if (result.isSuccess()) {
                     handleSuccessfulLogin(context, result);
                 } else {
-                    handleFailedLogin(context, email, result.getMessage());
+                    handleFailedLogin(context, usernameOrEmail, result.getMessage());
                 }
             })
             .onFailure(throwable -> {
-                logger.error("Authentication command failed for email: {} from IP: {}", 
-                    email, clientIp, throwable);
-                handleAuthenticationError(context, email, throwable);
+                logger.error("Authentication command failed for usernameOrEmail: {} from IP: {}", 
+                    usernameOrEmail, clientIp, throwable);
+                handleAuthenticationError(context, usernameOrEmail, throwable);
             });
     }
     
@@ -344,22 +344,22 @@ public class AuthController {
     
     // Error handlers
     
-    private void handleFailedLogin(RoutingContext context, String email, String message) {
-        SecurityLoggingMiddleware.logFailedAuthentication(context, email, message);
-        ResponseUtil.sendUnauthorized(context, "Invalid email or password");
+    private void handleFailedLogin(RoutingContext context, String usernameOrEmail, String message) {
+        SecurityLoggingMiddleware.logFailedAuthentication(context, usernameOrEmail, message);
+        ResponseUtil.sendUnauthorized(context, "Invalid credentials");
         
-        logger.warn("Failed login attempt for email: {} from IP: {} - Reason: {}", 
-            email, RequestUtil.getClientIp(context), message);
+        logger.warn("Failed login attempt for usernameOrEmail: {} from IP: {} - Reason: {}", 
+            usernameOrEmail, RequestUtil.getClientIp(context), message);
     }
     
-    private void handleAuthenticationError(RoutingContext context, String email, Throwable throwable) {
+    private void handleAuthenticationError(RoutingContext context, String usernameOrEmail, Throwable throwable) {
         if (throwable instanceof AuthenticationException) {
-            handleFailedLogin(context, email, throwable.getMessage());
+            handleFailedLogin(context, usernameOrEmail, throwable.getMessage());
         } else if (throwable instanceof DomainException) {
-            SecurityLoggingMiddleware.logFailedAuthentication(context, email, throwable.getMessage());
+            SecurityLoggingMiddleware.logFailedAuthentication(context, usernameOrEmail, throwable.getMessage());
             ResponseUtil.sendError(context, 400, "AUTHENTICATION_ERROR", throwable.getMessage());
         } else {
-            SecurityLoggingMiddleware.logFailedAuthentication(context, email, "System error");
+            SecurityLoggingMiddleware.logFailedAuthentication(context, usernameOrEmail, "System error");
             ResponseUtil.sendInternalError(context, "Authentication service temporarily unavailable");
         }
     }

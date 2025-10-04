@@ -389,10 +389,10 @@ class CqrsIntegrationTest {
                 .extract().response();
         
         // All queries should return identical results
-        assertEquals(firstQuery.path("id"), secondQuery.path("id"), "Queries should be idempotent");
-        assertEquals(firstQuery.path("email"), secondQuery.path("email"), "Queries should be idempotent");
-        assertEquals(secondQuery.path("id"), thirdQuery.path("id"), "Queries should be idempotent");
-        assertEquals(secondQuery.path("email"), thirdQuery.path("email"), "Queries should be idempotent");
+        assertEquals(firstQuery.path("id").toString(), secondQuery.path("id").toString(), "Queries should be idempotent");
+        assertEquals(firstQuery.path("email").toString(), secondQuery.path("email").toString(), "Queries should be idempotent");
+        assertEquals(secondQuery.path("id").toString(), thirdQuery.path("id").toString(), "Queries should be idempotent");
+        assertEquals(secondQuery.path("email").toString(), thirdQuery.path("email").toString(), "Queries should be idempotent");
     }
     
     // ========================================

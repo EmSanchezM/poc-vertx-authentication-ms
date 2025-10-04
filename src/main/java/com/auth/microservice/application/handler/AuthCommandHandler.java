@@ -13,6 +13,7 @@ import io.vertx.core.Future;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -40,27 +41,26 @@ public class AuthCommandHandler implements CommandHandler<AuthenticateCommand, A
      * Handles user authentication command.
      */
     public Future<AuthenticationResult> handle(AuthenticateCommand command) {
-        logger.info("Processing authentication for email: {}", command.getEmail());
+        String identifierType = command.isEmail() ? "email" : "username";
+        logger.info("Processing authentication with {}", identifierType);
         
         try {
-            Email email = new Email(command.getEmail());
-            
-            return userRepository.findByEmailWithRoles(email)
+            return findUserByIdentifier(command)
                 .compose(userOpt -> {
                     if (userOpt.isEmpty()) {
-                        logger.warn("Authentication failed: User not found for email: {}", command.getEmail());
+                        logger.warn("Authentication failed: User not found");
                         return Future.succeededFuture(AuthenticationResult.failure("Invalid credentials"));
                     }
                     
                     User user = userOpt.get();
                     
                     if (!user.isActive()) {
-                        logger.warn("Authentication failed: User account is inactive for email: {}", command.getEmail());
+                        logger.warn("Authentication failed: User account is inactive");
                         return Future.succeededFuture(AuthenticationResult.failure("Account is inactive"));
                     }
                     
                     if (!passwordService.verifyPassword(command.getPassword(), user.getPasswordHash())) {
-                        logger.warn("Authentication failed: Invalid password for email: {}", command.getEmail());
+                        logger.warn("Authentication failed: Invalid password");
                         return Future.succeededFuture(AuthenticationResult.failure("Invalid credentials"));
                     }
                     
@@ -80,16 +80,33 @@ public class AuthCommandHandler implements CommandHandler<AuthenticateCommand, A
                 })
                 .recover(throwable -> {
                     if (throwable instanceof IllegalArgumentException) {
-                        logger.warn("Authentication failed: Invalid email format: {}", command.getEmail());
-                        return Future.succeededFuture(AuthenticationResult.failure("Invalid email format"));
+                        logger.warn("Authentication failed: Invalid identifier format");
+                        return Future.succeededFuture(AuthenticationResult.failure("Invalid credentials"));
                     }
-                    logger.error("Authentication error for email: {}", command.getEmail(), throwable);
+                    logger.error("Authentication error", throwable);
                     return Future.failedFuture(new AuthenticationException("Authentication failed", throwable));
                 });
                 
         } catch (Exception e) {
-            logger.error("Authentication error for email: {}", command.getEmail(), e);
+            logger.error("Authentication error", e);
             return Future.failedFuture(new AuthenticationException("Authentication failed", e));
+        }
+    }
+
+    /**
+     * Find user by either email or username based on the identifier format
+     */
+    private Future<Optional<User>> findUserByIdentifier(AuthenticateCommand command) {
+        if (command.isEmail()) {
+            try {
+                Email email = new Email(command.getUsernameOrEmail());
+                return userRepository.findByEmailWithRoles(email);
+            } catch (IllegalArgumentException e) {
+                // Invalid email format
+                return Future.succeededFuture(Optional.empty());
+            }
+        } else {
+            return userRepository.findByUsernameWithRoles(command.getUsernameOrEmail());
         }
     }
 

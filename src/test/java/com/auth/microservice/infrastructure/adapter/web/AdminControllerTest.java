@@ -15,7 +15,7 @@ import com.auth.microservice.domain.exception.UserNotFoundException;
 import com.auth.microservice.domain.model.Permission;
 import com.auth.microservice.domain.model.Role;
 import com.auth.microservice.domain.model.User;
-import com.auth.microservice.domain.model.valueobject.Email;
+import com.auth.microservice.domain.model.Email;
 import com.auth.microservice.infrastructure.adapter.web.middleware.AuthenticationMiddleware;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -72,7 +72,7 @@ class AdminControllerTest {
         router.route().handler(BodyHandler.create());
         
         // Mock authentication middleware to set user context
-        when(authenticationMiddleware.handle(any())).thenAnswer(invocation -> {
+        doAnswer(invocation -> {
             io.vertx.ext.web.RoutingContext context = invocation.getArgument(0);
             // Simulate authenticated admin user
             context.put("user", new JsonObject()
@@ -266,9 +266,9 @@ class AdminControllerTest {
         UUID userId = UUID.randomUUID();
         UUID roleId = UUID.randomUUID();
         
-        RoleAssignmentResult successResult = new RoleAssignmentResult(
-            userId.toString(), roleId.toString(), "MODERATOR", LocalDateTime.now(), true, null
-        );
+        User mockUser = mock(User.class);
+        when(mockUser.getId()).thenReturn(userId);
+        RoleAssignmentResult successResult = RoleAssignmentResult.success(mockUser);
         
         when(commandBus.<RoleAssignmentResult>send(any(AssignRoleCommand.class)))
             .thenReturn(Future.succeededFuture(successResult));
@@ -427,8 +427,7 @@ class AdminControllerTest {
     
     private User createMockUser(UUID id, String email, boolean isActive) {
         User user = mock(User.class);
-        Email emailObj = mock(Email.class);
-        when(emailObj.getValue()).thenReturn(email);
+        Email emailObj = new Email(email);
         
         when(user.getId()).thenReturn(id);
         when(user.getEmail()).thenReturn(emailObj);

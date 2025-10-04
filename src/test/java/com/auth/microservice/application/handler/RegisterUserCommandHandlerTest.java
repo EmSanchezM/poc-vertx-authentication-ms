@@ -10,6 +10,7 @@ import com.auth.microservice.domain.model.User;
 import com.auth.microservice.domain.port.RoleRepository;
 import com.auth.microservice.domain.port.UserRepository;
 import com.auth.microservice.domain.service.PasswordService;
+import com.auth.microservice.domain.service.UsernameGenerationService;
 import io.vertx.core.Future;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
@@ -40,6 +41,9 @@ class RegisterUserCommandHandlerTest {
     
     @Mock
     private PasswordService passwordService;
+    
+    @Mock
+    private UsernameGenerationService usernameGenerationService;
 
     private RegisterUserCommandHandler handler;
     private User testUser;
@@ -47,7 +51,7 @@ class RegisterUserCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new RegisterUserCommandHandler(userRepository, roleRepository, passwordService);
+        handler = new RegisterUserCommandHandler(userRepository, roleRepository, passwordService, usernameGenerationService);
         
         testUser = new User(
             "testuser",

@@ -8,6 +8,7 @@ import com.auth.microservice.domain.model.Permission;
 import com.auth.microservice.domain.model.Role;
 import com.auth.microservice.domain.model.User;
 import com.auth.microservice.domain.port.UserRepository;
+import com.auth.microservice.domain.port.SessionRepository;
 import com.auth.microservice.domain.service.JWTService;
 import io.vertx.core.Future;
 import io.vertx.junit5.VertxExtension;
@@ -37,6 +38,9 @@ class RefreshTokenCommandHandlerTest {
     
     @Mock
     private JWTService jwtService;
+    
+    @Mock
+    private SessionRepository sessionRepository;
 
     private RefreshTokenCommandHandler handler;
     private User testUser;
@@ -44,7 +48,7 @@ class RefreshTokenCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new RefreshTokenCommandHandler(userRepository, jwtService);
+        handler = new RefreshTokenCommandHandler(userRepository, sessionRepository, jwtService);
         
         testEmail = new Email("test@example.com");
         testUser = new User(
