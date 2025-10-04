@@ -95,4 +95,24 @@ public interface UserRepository extends Repository<User, UUID> {
      * @return Future containing count of users created since the date
      */
     Future<Long> countCreatedSince(java.time.LocalDateTime since);
+    
+    /**
+     * Check if username exists with case-insensitive comparison.
+     * Used for username generation to ensure uniqueness regardless of case.
+     * 
+     * @param username Username to check (case will be ignored)
+     * @return Future containing boolean result - true if username exists
+     */
+    Future<Boolean> existsByUsernameIgnoreCase(String username);
+    
+    /**
+     * Find usernames that start with a given prefix.
+     * Used for collision detection and suffix generation during username creation.
+     * Results are ordered alphabetically to facilitate collision resolution.
+     * 
+     * @param usernamePrefix Prefix to search for (case-insensitive)
+     * @param limit Maximum number of results to return
+     * @return Future containing list of matching usernames
+     */
+    Future<List<String>> findUsernamesStartingWith(String usernamePrefix, int limit);
 }

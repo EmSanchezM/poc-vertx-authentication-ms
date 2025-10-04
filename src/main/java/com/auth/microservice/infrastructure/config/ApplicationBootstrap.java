@@ -13,6 +13,10 @@ import com.auth.microservice.domain.service.GeoLocationService;
 import com.auth.microservice.domain.service.PasswordService;
 import com.auth.microservice.domain.service.RateLimitService;
 import com.auth.microservice.domain.service.JWTService;
+import com.auth.microservice.domain.service.UsernameGenerationService;
+import com.auth.microservice.domain.service.UsernameNormalizationService;
+import com.auth.microservice.domain.service.UsernameCollisionService;
+import com.auth.microservice.domain.service.UsernameValidationService;
 import com.auth.microservice.infrastructure.adapter.cache.RedisAuthCacheService;
 import com.auth.microservice.infrastructure.adapter.external.IpApiGeoLocationService;
 import com.auth.microservice.infrastructure.adapter.logging.StructuredLogger;
@@ -21,6 +25,12 @@ import com.auth.microservice.infrastructure.adapter.rest.MonitoringController;
 import com.auth.microservice.infrastructure.adapter.security.BCryptPasswordService;
 import com.auth.microservice.infrastructure.adapter.security.JwtTokenService;
 import com.auth.microservice.infrastructure.adapter.security.RedisRateLimitService;
+import com.auth.microservice.infrastructure.adapter.security.UsernameGenerationServiceImpl;
+import com.auth.microservice.infrastructure.adapter.security.UsernameNormalizationServiceImpl;
+import com.auth.microservice.infrastructure.adapter.security.UsernameCollisionServiceImpl;
+import com.auth.microservice.infrastructure.adapter.security.UsernameValidationServiceImpl;
+import com.auth.microservice.infrastructure.adapter.logging.UsernameGenerationAuditLogger;
+import com.auth.microservice.infrastructure.adapter.logging.UsernameGenerationErrorHandler;
 import com.auth.microservice.infrastructure.adapter.web.AuthController;
 import com.auth.microservice.infrastructure.adapter.web.UserController;
 import com.auth.microservice.infrastructure.adapter.web.config.WebRouterConfiguration;
@@ -67,6 +77,15 @@ public class ApplicationBootstrap {
     private StructuredLogger structuredLogger;
     private RedisAuthCacheService cacheService;
     
+    // Servicios de generación de usernames
+    private UsernameGenerationProperties usernameGenerationProperties;
+    private UsernameNormalizationService usernameNormalizationService;
+    private UsernameValidationService usernameValidationService;
+    private UsernameCollisionService usernameCollisionService;
+    private UsernameGenerationService usernameGenerationService;
+    private UsernameGenerationAuditLogger usernameGenerationAuditLogger;
+    private UsernameGenerationErrorHandler usernameGenerationErrorHandler;
+    
     // Repositorios
     private UserRepository userRepository;
     private RoleRepository roleRepository;
@@ -103,6 +122,7 @@ public class ApplicationBootstrap {
             .compose(v -> runDatabaseMigrations())
             .compose(v -> initializeDomainServices())
             .compose(v -> initializeRepositories())
+            .compose(v -> initializeUsernameGenerationServices())
             .compose(v -> initializeCqrsHandlers())
             .compose(v -> initializeControllers())
             .compose(v -> initializeMonitoring())
@@ -231,6 +251,55 @@ public class ApplicationBootstrap {
     }
     
     /**
+     * Inicializa los servicios de generación de usernames
+     */
+    private Future<Void> initializeUsernameGenerationServices() {
+        logger.info("Inicializando servicios de generación de usernames...");
+        
+        try {
+            // Cargar configuración de generación de usernames
+            this.usernameGenerationProperties = new UsernameGenerationProperties(configFactory.getConfigService());
+            logger.info("Configuración de generación de usernames cargada: {}", usernameGenerationProperties);
+            
+            // Inicializar servicios auxiliares primero
+            this.usernameGenerationAuditLogger = new UsernameGenerationAuditLogger();
+            logger.debug("UsernameGenerationAuditLogger inicializado");
+            
+            this.usernameGenerationErrorHandler = new UsernameGenerationErrorHandler();
+            logger.debug("UsernameGenerationErrorHandler inicializado");
+            
+            // Inicializar servicios en orden de dependencias
+            this.usernameNormalizationService = new UsernameNormalizationServiceImpl();
+            logger.debug("UsernameNormalizationService inicializado");
+            
+            this.usernameValidationService = new UsernameValidationServiceImpl();
+            logger.debug("UsernameValidationService inicializado");
+            
+            this.usernameCollisionService = new UsernameCollisionServiceImpl(
+                userRepository,
+                usernameGenerationAuditLogger
+            );
+            logger.debug("UsernameCollisionService inicializado");
+            
+            this.usernameGenerationService = new UsernameGenerationServiceImpl(
+                usernameNormalizationService,
+                usernameCollisionService,
+                usernameValidationService,
+                usernameGenerationAuditLogger,
+                usernameGenerationErrorHandler
+            );
+            logger.debug("UsernameGenerationService inicializado");
+            
+            logger.info("Servicios de generación de usernames inicializados exitosamente");
+            return Future.succeededFuture();
+            
+        } catch (Exception e) {
+            logger.error("Error inicializando servicios de generación de usernames", e);
+            return Future.failedFuture("Error en configuración de generación de usernames: " + e.getMessage());
+        }
+    }
+    
+    /**
      * Inicializa los repositorios
      */
     private Future<Void> initializeRepositories() {
@@ -274,7 +343,7 @@ public class ApplicationBootstrap {
         // Command Handlers - inicializados con todas las dependencias necesarias
         List<CommandHandler<?, ?>> commandHandlers = List.of(
             new AuthCommandHandler(userRepository, passwordService, tokenService),
-            new RegisterUserCommandHandler(userRepository, roleRepository, passwordService),
+            new RegisterUserCommandHandler(userRepository, roleRepository, passwordService, usernameGenerationService),
             new RefreshTokenCommandHandler(userRepository, sessionRepository, tokenService),
             new InvalidateSessionCommandHandler(sessionRepository, geoLocationService),
             new InvalidateAllUserSessionsCommandHandler(sessionRepository, geoLocationService),
@@ -459,6 +528,14 @@ public class ApplicationBootstrap {
     
     public CqrsConfiguration getCqrsConfiguration() {
         return cqrsConfiguration;
+    }
+    
+    public UsernameGenerationProperties getUsernameGenerationProperties() {
+        return usernameGenerationProperties;
+    }
+    
+    public UsernameGenerationService getUsernameGenerationService() {
+        return usernameGenerationService;
     }
     
     /**

@@ -305,6 +305,51 @@ public class UserRepositoryImpl extends AbstractRepository<User, UUID> implement
             .onFailure(error -> logger.error("Failed to count users created since: {}", since, error));
     }
     
+    @Override
+    public Future<Boolean> existsByUsernameIgnoreCase(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return Future.succeededFuture(false);
+        }
+        
+        String sql = "SELECT 1 FROM users WHERE LOWER(username) = LOWER($1) LIMIT 1";
+        
+        return executeQuery(sql, Tuple.of(username.trim()))
+            .map(rows -> rows.size() > 0)
+            .onFailure(error -> logger.error("Failed to check if username exists (case-insensitive): {}", username, error));
+    }
+    
+    @Override
+    public Future<List<String>> findUsernamesStartingWith(String usernamePrefix, int limit) {
+        if (usernamePrefix == null || usernamePrefix.trim().isEmpty()) {
+            return Future.succeededFuture(List.of());
+        }
+        
+        final int finalLimit = limit <= 0 ? 100 : limit; // Default limit to prevent unbounded queries
+        final String finalUsernamePrefix = usernamePrefix;
+        
+        String sql = """
+            SELECT username FROM users 
+            WHERE LOWER(username) LIKE LOWER($1) 
+            ORDER BY username ASC 
+            LIMIT $2
+            """;
+        
+        String searchPattern = usernamePrefix.trim() + "%";
+        
+        return executeQuery(sql, Tuple.of(searchPattern, finalLimit))
+            .map(rows -> {
+                List<String> usernames = new java.util.ArrayList<>();
+                for (Row row : rows) {
+                    String username = SqlUtils.getString(row, "username");
+                    if (username != null) {
+                        usernames.add(username);
+                    }
+                }
+                return usernames;
+            })
+            .onFailure(error -> logger.error("Failed to find usernames starting with: {} (limit: {})", finalUsernamePrefix, finalLimit, error));
+    }
+    
     /**
      * Map database rows to User entity with roles
      * @param rows Database rows containing user and role data
