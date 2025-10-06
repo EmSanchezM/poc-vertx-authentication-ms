@@ -406,16 +406,9 @@ public class ApplicationBootstrap {
             authMiddleware
         );
         
-        this.monitoringController = new MonitoringController(
-            healthCheckService,
-            metricsService,
-            configFactory
-        );
+        // Nota: MonitoringController se inicializa en initializeMonitoring() después de crear healthCheckService
         
-        // Inicializar DebugController después de que los servicios de monitoreo estén disponibles
-        // Nota: Se inicializa aquí pero se configurará en initializeMonitoring() cuando healthCheckService esté listo
-        
-        logger.info("Controladores inicializados: Auth, User, Admin, Monitoring");
+        logger.info("Controladores inicializados: Auth, User, Admin");
         return Future.succeededFuture();
     }
     
@@ -427,6 +420,13 @@ public class ApplicationBootstrap {
         
         this.metricsService = new MetricsService(vertx);
         this.healthCheckService = new HealthCheckService(vertx, databaseConfig, redisClient);
+        
+        // Inicializar MonitoringController ahora que tenemos healthCheckService y metricsService
+        this.monitoringController = new MonitoringController(
+            healthCheckService,
+            metricsService,
+            configFactory
+        );
         
         // Inicializar DebugController ahora que tenemos todos los servicios necesarios
         this.debugController = new com.auth.microservice.infrastructure.adapter.web.DebugController(
@@ -441,7 +441,7 @@ public class ApplicationBootstrap {
             geoLocationService, metricsService
         );
         
-        logger.info("Servicios de monitoreo, DebugController y configuración web inicializados");
+        logger.info("Servicios de monitoreo, MonitoringController, DebugController y configuración web inicializados");
         return Future.succeededFuture();
     }
     
