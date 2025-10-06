@@ -225,9 +225,13 @@ public class AuthController {
         RefreshTokenCommand command = new RefreshTokenCommand(refreshToken, clientIp, userAgent);
         
         // Execute token refresh through command bus
-        commandBus.<JWTService.TokenPair>send(command)
-            .onSuccess(tokenPair -> {
-                handleSuccessfulTokenRefresh(context, tokenPair);
+        commandBus.<AuthenticationResult>send(command)
+            .onSuccess(result -> {
+                if (result.isSuccess()) {
+                    handleSuccessfulTokenRefresh(context, result.getTokenPair());
+                } else {
+                    handleFailedTokenRefresh(context, result.getMessage());
+                }
             })
             .onFailure(throwable -> {
                 logger.error("Token refresh command failed from IP: {}", clientIp, throwable);
@@ -383,6 +387,13 @@ public class AuthController {
         }
         
         logger.error("Registration error for email: {} from IP: {}", email, RequestUtil.getClientIp(context), throwable);
+    }
+    
+    private void handleFailedTokenRefresh(RoutingContext context, String message) {
+        ResponseUtil.sendUnauthorized(context, "Invalid or expired refresh token");
+        
+        logger.warn("Failed token refresh attempt from IP: {} - Reason: {}", 
+            RequestUtil.getClientIp(context), message);
     }
     
     private void handleTokenRefreshError(RoutingContext context, Throwable throwable) {

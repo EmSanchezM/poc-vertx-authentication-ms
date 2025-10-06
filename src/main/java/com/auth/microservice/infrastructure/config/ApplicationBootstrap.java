@@ -342,7 +342,7 @@ public class ApplicationBootstrap {
         
         // Command Handlers - inicializados con todas las dependencias necesarias
         List<CommandHandler<?, ?>> commandHandlers = List.of(
-            new AuthCommandHandler(userRepository, passwordService, tokenService),
+            new AuthCommandHandler(userRepository, sessionRepository, passwordService, tokenService),
             new RegisterUserCommandHandler(userRepository, roleRepository, passwordService, usernameGenerationService),
             new RefreshTokenCommandHandler(userRepository, sessionRepository, tokenService),
             new InvalidateSessionCommandHandler(sessionRepository, geoLocationService),

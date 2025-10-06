@@ -3,9 +3,12 @@ package com.auth.microservice.application.handler;
 import com.auth.microservice.common.cqrs.CommandHandler;
 import com.auth.microservice.application.command.AuthenticateCommand;
 import com.auth.microservice.application.result.AuthenticationResult;
+import com.auth.microservice.common.util.TokenHashUtil;
 import com.auth.microservice.domain.exception.AuthenticationException;
 import com.auth.microservice.domain.model.Email;
+import com.auth.microservice.domain.model.Session;
 import com.auth.microservice.domain.model.User;
+import com.auth.microservice.domain.port.SessionRepository;
 import com.auth.microservice.domain.port.UserRepository;
 import com.auth.microservice.domain.service.JWTService;
 import com.auth.microservice.domain.service.PasswordService;
@@ -26,13 +29,16 @@ public class AuthCommandHandler implements CommandHandler<AuthenticateCommand, A
     private static final Logger logger = LoggerFactory.getLogger(AuthCommandHandler.class);
 
     private final UserRepository userRepository;
+    private final SessionRepository sessionRepository;
     private final PasswordService passwordService;
     private final JWTService jwtService;
 
     public AuthCommandHandler(UserRepository userRepository, 
+                             SessionRepository sessionRepository,
                              PasswordService passwordService, 
                              JWTService jwtService) {
         this.userRepository = userRepository;
+        this.sessionRepository = sessionRepository;
         this.passwordService = passwordService;
         this.jwtService = jwtService;
     }
@@ -75,8 +81,24 @@ public class AuthCommandHandler implements CommandHandler<AuthenticateCommand, A
                         permissions
                     );
                     
-                    logger.info("Authentication successful for user: {}", user.getId());
-                    return Future.succeededFuture(AuthenticationResult.success(user, tokenPair));
+                    // Create and save session
+                    String accessTokenHash = TokenHashUtil.hashToken(tokenPair.accessToken());
+                    String refreshTokenHash = TokenHashUtil.hashToken(tokenPair.refreshToken());
+                    
+                    Session session = new Session(
+                        user.getId(),
+                        accessTokenHash,
+                        refreshTokenHash,
+                        tokenPair.refreshTokenExpiration(),
+                        command.getIpAddress(),
+                        command.getUserAgent()
+                    );
+                    
+                    return sessionRepository.save(session)
+                        .compose(savedSession -> {
+                            logger.info("Authentication successful for user: {}", user.getId());
+                            return Future.succeededFuture(AuthenticationResult.success(user, tokenPair));
+                        });
                 })
                 .recover(throwable -> {
                     if (throwable instanceof IllegalArgumentException) {
