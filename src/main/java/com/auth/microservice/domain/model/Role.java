@@ -1,6 +1,6 @@
 package com.auth.microservice.domain.model;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Objects;
@@ -14,7 +14,7 @@ public class Role {
     private UUID id;
     private String name;
     private String description;
-    private LocalDateTime createdAt;
+    private OffsetDateTime createdAt;
     private Set<Permission> permissions;
     
     // Constructor for new roles
@@ -22,12 +22,12 @@ public class Role {
         this.id = UUID.randomUUID();
         this.name = validateName(name);
         this.description = description != null ? description.trim() : "";
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = OffsetDateTime.now();
         this.permissions = new HashSet<>();
     }
     
     // Constructor for existing roles (from database)
-    public Role(UUID id, String name, String description, LocalDateTime createdAt) {
+    public Role(UUID id, String name, String description, OffsetDateTime createdAt) {
         this.id = Objects.requireNonNull(id, "Role ID cannot be null");
         this.name = validateName(name);
         this.description = description != null ? description.trim() : "";
@@ -89,7 +89,7 @@ public class Role {
     public UUID getId() { return id; }
     public String getName() { return name; }
     public String getDescription() { return description; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
+    public OffsetDateTime getCreatedAt() { return createdAt; }
     public Set<Permission> getPermissions() { 
         return Collections.unmodifiableSet(new HashSet<>(permissions)); 
     }

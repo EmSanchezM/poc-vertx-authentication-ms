@@ -9,7 +9,7 @@ import io.vertx.sqlclient.Pool;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.Tuple;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -104,7 +104,7 @@ public class RoleRepositoryImpl extends AbstractRepository<Role, UUID> implement
         UUID id = SqlUtils.getUUID(row, "id");
         String name = SqlUtils.getString(row, "name");
         String description = SqlUtils.getString(row, "description");
-        LocalDateTime createdAt = SqlUtils.getLocalDateTime(row, "created_at");
+        OffsetDateTime createdAt = SqlUtils.getOffsetDateTime(row, "created_at");
         
         return new Role(id, name, description, createdAt);
     }

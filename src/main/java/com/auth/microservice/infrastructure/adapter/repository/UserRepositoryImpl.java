@@ -10,7 +10,7 @@ import io.vertx.sqlclient.Pool;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.Tuple;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -123,8 +123,8 @@ public class UserRepositoryImpl extends AbstractRepository<User, UUID> implement
         String firstName = SqlUtils.getString(row, "first_name");
         String lastName = SqlUtils.getString(row, "last_name");
         Boolean isActive = SqlUtils.getBoolean(row, "is_active");
-        LocalDateTime createdAt = SqlUtils.getLocalDateTime(row, "created_at");
-        LocalDateTime updatedAt = SqlUtils.getLocalDateTime(row, "updated_at");
+        OffsetDateTime createdAt = SqlUtils.getOffsetDateTime(row, "created_at");
+        OffsetDateTime updatedAt = SqlUtils.getOffsetDateTime(row, "updated_at");
         
         Email email = new Email(emailValue);
         
@@ -313,7 +313,7 @@ public class UserRepositoryImpl extends AbstractRepository<User, UUID> implement
     }
     
     @Override
-    public Future<Long> countCreatedSince(LocalDateTime since) {
+    public Future<Long> countCreatedSince(OffsetDateTime since) {
         String sql = "SELECT COUNT(*) FROM users WHERE created_at >= $1";
         return executeQuery(sql, Tuple.of(since))
             .map(rows -> {
@@ -385,7 +385,7 @@ public class UserRepositoryImpl extends AbstractRepository<User, UUID> implement
             if (roleId != null) {
                 String roleName = SqlUtils.getString(row, "role_name");
                 String roleDescription = SqlUtils.getString(row, "role_description");
-                LocalDateTime roleCreatedAt = SqlUtils.getLocalDateTime(row, "role_created_at");
+                OffsetDateTime roleCreatedAt = SqlUtils.getOffsetDateTime(row, "role_created_at");
                 
                 Role role = new Role(roleId, roleName, roleDescription, roleCreatedAt);
                 user.addRole(role);

@@ -101,7 +101,7 @@ public interface UserRepository extends Repository<User, UUID> {
      * @param since Date to count from
      * @return Future containing count of users created since the date
      */
-    Future<Long> countCreatedSince(java.time.LocalDateTime since);
+    Future<Long> countCreatedSince(java.time.OffsetDateTime since);
     
     /**
      * Check if username exists with case-insensitive comparison.

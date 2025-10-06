@@ -97,7 +97,7 @@ class AuthControllerTest {
             .put("password", "TestPassword123!");
         
         // Act & Assert
-        webClient.request(HttpMethod.POST, port, "localhost", "/auth/login")
+        webClient.request(HttpMethod.POST, port, "localhost", "/api/v1/auth/login")
             .sendJsonObject(loginRequest)
             .onComplete(testContext.succeeding(response -> testContext.verify(() -> {
                 assertEquals(200, response.statusCode());
@@ -141,7 +141,7 @@ class AuthControllerTest {
             .put("password", "TestPassword123!");
         
         // Act & Assert
-        webClient.request(HttpMethod.POST, port, "localhost", "/auth/login")
+        webClient.request(HttpMethod.POST, port, "localhost", "/api/v1/auth/login")
             .sendJsonObject(loginRequest)
             .onComplete(testContext.succeeding(response -> testContext.verify(() -> {
                 assertEquals(200, response.statusCode());
@@ -173,7 +173,7 @@ class AuthControllerTest {
             .put("password", ""); // Empty password
         
         // Act & Assert
-        webClient.request(HttpMethod.POST, port, "localhost", "/auth/login")
+        webClient.request(HttpMethod.POST, port, "localhost", "/api/v1/auth/login")
             .sendJsonObject(invalidRequest)
             .onComplete(testContext.succeeding(response -> testContext.verify(() -> {
                 assertEquals(400, response.statusCode());
@@ -196,7 +196,7 @@ class AuthControllerTest {
             .put("password", "TestPassword123!"); // Missing usernameOrEmail
         
         // Act & Assert
-        webClient.request(HttpMethod.POST, port, "localhost", "/auth/login")
+        webClient.request(HttpMethod.POST, port, "localhost", "/api/v1/auth/login")
             .sendJsonObject(invalidRequest)
             .onComplete(testContext.succeeding(response -> testContext.verify(() -> {
                 assertEquals(400, response.statusCode());
@@ -228,7 +228,7 @@ class AuthControllerTest {
             .put("lastName", "Smith");
         
         // Act & Assert
-        webClient.request(HttpMethod.POST, port, "localhost", "/auth/register")
+        webClient.request(HttpMethod.POST, port, "localhost", "/api/v1/auth/register")
             .sendJsonObject(registerRequest)
             .onComplete(testContext.succeeding(response -> testContext.verify(() -> {
                 assertEquals(201, response.statusCode());
@@ -256,7 +256,7 @@ class AuthControllerTest {
             .put("lastName", "Smith");
         
         // Act & Assert
-        webClient.request(HttpMethod.POST, port, "localhost", "/auth/register")
+        webClient.request(HttpMethod.POST, port, "localhost", "/api/v1/auth/register")
             .sendJsonObject(registerRequest)
             .onComplete(testContext.succeeding(response -> testContext.verify(() -> {
                 assertEquals(400, response.statusCode());
@@ -289,7 +289,7 @@ class AuthControllerTest {
             .put("refreshToken", "valid-refresh-token");
         
         // Act & Assert
-        webClient.request(HttpMethod.POST, port, "localhost", "/auth/refresh")
+        webClient.request(HttpMethod.POST, port, "localhost", "/api/v1/auth/refresh")
             .sendJsonObject(refreshRequest)
             .onComplete(testContext.succeeding(response -> testContext.verify(() -> {
                 assertEquals(200, response.statusCode());
@@ -313,7 +313,7 @@ class AuthControllerTest {
         JsonObject refreshRequest = new JsonObject(); // Missing refreshToken
         
         // Act & Assert
-        webClient.request(HttpMethod.POST, port, "localhost", "/auth/refresh")
+        webClient.request(HttpMethod.POST, port, "localhost", "/api/v1/auth/refresh")
             .sendJsonObject(refreshRequest)
             .onComplete(testContext.succeeding(response -> testContext.verify(() -> {
                 assertEquals(400, response.statusCode());
@@ -328,7 +328,7 @@ class AuthControllerTest {
     @Test
     void testLogoutEndpoint_MissingAuthHeader(Vertx vertx, VertxTestContext testContext) {
         // Act & Assert
-        webClient.request(HttpMethod.POST, port, "localhost", "/auth/logout")
+        webClient.request(HttpMethod.POST, port, "localhost", "/api/v1/auth/logout")
             .send()
             .onComplete(testContext.succeeding(response -> testContext.verify(() -> {
                 assertEquals(401, response.statusCode());

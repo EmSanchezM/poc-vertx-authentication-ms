@@ -1,6 +1,6 @@
 package com.auth.microservice.domain.model;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Objects;
@@ -18,8 +18,8 @@ public class User {
     private String firstName;
     private String lastName;
     private boolean isActive;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
     private Set<Role> roles;
     
     // Constructor for new users
@@ -31,14 +31,14 @@ public class User {
         this.firstName = validateName(firstName, "First name");
         this.lastName = validateName(lastName, "Last name");
         this.isActive = true;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        this.createdAt = OffsetDateTime.now();
+        this.updatedAt = OffsetDateTime.now();
         this.roles = new HashSet<>();
     }
     
     // Constructor for existing users (from database)
     public User(UUID id, String username, Email email, String passwordHash, String firstName, 
-                String lastName, boolean isActive, LocalDateTime createdAt, LocalDateTime updatedAt) {
+                String lastName, boolean isActive, OffsetDateTime createdAt, OffsetDateTime updatedAt) {
         this.id = Objects.requireNonNull(id, "User ID cannot be null");
         this.username = validateUsername(username);
         this.email = Objects.requireNonNull(email, "Email cannot be null");
@@ -122,7 +122,7 @@ public class User {
     }
     
     private void updateTimestamp() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = OffsetDateTime.now();
     }
     
     public Set<Permission> getAllPermissions() {
@@ -146,8 +146,8 @@ public class User {
     public String getFirstName() { return firstName; }
     public String getLastName() { return lastName; }
     public boolean isActive() { return isActive; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public OffsetDateTime getUpdatedAt() { return updatedAt; }
     public Set<Role> getRoles() { 
         return Collections.unmodifiableSet(new HashSet<>(roles)); 
     }

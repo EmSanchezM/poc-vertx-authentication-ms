@@ -2,6 +2,7 @@ package com.auth.microservice.infrastructure.adapter.repository;
 
 import io.vertx.sqlclient.Row;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
@@ -62,6 +63,16 @@ public final class SqlUtils {
      */
     public static LocalDateTime getLocalDateTime(Row row, String columnName) {
         return row.getLocalDateTime(columnName);
+    }
+    
+    /**
+     * Safely get OffsetDateTime from row
+     * @param row Database row
+     * @param columnName Column name
+     * @return OffsetDateTime value or null
+     */
+    public static OffsetDateTime getOffsetDateTime(Row row, String columnName) {
+        return row.getOffsetDateTime(columnName);
     }
     
     /**

@@ -96,9 +96,9 @@ public class SecurityLoggingMiddleware implements Handler<RoutingContext> {
     
     private String determineSecurityEventType(String method, String path) {
         if ("POST".equals(method)) {
-            if (path.contains("/auth/login")) return "LOGIN_ATTEMPT";
-            if (path.contains("/auth/register")) return "REGISTRATION_ATTEMPT";
-            if (path.contains("/auth/refresh")) return "TOKEN_REFRESH";
+            if (path.contains("/api/v1/auth/login") || path.contains("/auth/login")) return "LOGIN_ATTEMPT";
+            if (path.contains("/api/v1/auth/register") || path.contains("/auth/register")) return "REGISTRATION_ATTEMPT";
+            if (path.contains("/api/v1/auth/refresh") || path.contains("/auth/refresh")) return "TOKEN_REFRESH";
             if (path.contains("/admin/")) return "ADMIN_ACTION";
         }
         
@@ -108,7 +108,7 @@ public class SecurityLoggingMiddleware implements Handler<RoutingContext> {
         }
         
         if ("DELETE".equals(method)) {
-            if (path.contains("/auth/logout")) return "LOGOUT";
+            if (path.contains("/api/v1/auth/logout") || path.contains("/auth/logout")) return "LOGOUT";
             if (path.contains("/admin/")) return "ADMIN_DELETE";
         }
         

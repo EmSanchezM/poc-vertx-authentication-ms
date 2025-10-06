@@ -2,7 +2,7 @@ package com.auth.microservice.application.result;
 
 import com.auth.microservice.domain.model.Role;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -18,13 +18,13 @@ public class UserProfile {
     private final String firstName;
     private final String lastName;
     private final boolean isActive;
-    private final LocalDateTime createdAt;
-    private final LocalDateTime updatedAt;
+    private final OffsetDateTime createdAt;
+    private final OffsetDateTime updatedAt;
     private final Set<String> roleNames;
     private final Set<String> permissions;
 
     public UserProfile(UUID id, String username, String email, String firstName, String lastName,
-                      boolean isActive, LocalDateTime createdAt, LocalDateTime updatedAt,
+                      boolean isActive, OffsetDateTime createdAt, OffsetDateTime updatedAt,
                       Set<String> roleNames, Set<String> permissions) {
         this.id = Objects.requireNonNull(id, "User ID cannot be null");
         this.username = username;
@@ -66,11 +66,11 @@ public class UserProfile {
         return isActive;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
 
-    public LocalDateTime getUpdatedAt() {
+    public OffsetDateTime getUpdatedAt() {
         return updatedAt;
     }
 

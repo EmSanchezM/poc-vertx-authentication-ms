@@ -423,8 +423,8 @@ public class RedisAuthCacheService {
             json.getString("firstName"),
             json.getString("lastName"),
             json.getBoolean("isActive"),
-            java.time.LocalDateTime.parse(json.getString("createdAt")),
-            java.time.LocalDateTime.parse(json.getString("updatedAt"))
+            java.time.OffsetDateTime.parse(json.getString("createdAt")),
+            java.time.OffsetDateTime.parse(json.getString("updatedAt"))
         );
     }
     
@@ -469,7 +469,7 @@ public class RedisAuthCacheService {
             UUID.fromString(json.getString("id")),
             json.getString("name"),
             json.getString("description"),
-            java.time.LocalDateTime.parse(json.getString("createdAt"))
+            java.time.OffsetDateTime.parse(json.getString("createdAt"))
         );
         
         // Load permissions if they exist in the cached data

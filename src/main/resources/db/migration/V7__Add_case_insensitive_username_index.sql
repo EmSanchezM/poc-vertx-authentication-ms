@@ -53,21 +53,6 @@ CREATE INDEX idx_users_username_ci
 ON users (LOWER(username)) 
 WHERE username IS NOT NULL;
 
--- Add a check constraint to ensure username format compliance
--- This enforces the business rules at the database level
-ALTER TABLE users 
-ADD CONSTRAINT chk_username_format 
-CHECK (
-    username IS NULL OR (
-        LENGTH(username) >= 3 AND 
-        LENGTH(username) <= 64 AND
-        username ~ '^[a-z0-9.-]+$' AND
-        username !~ '^[.-]' AND
-        username !~ '[.-]$' AND
-        username !~ '[.-]{2,}'
-    )
-);
-
 -- Add a function to check for reserved usernames
 -- This will be used by the application but also provides database-level protection
 CREATE OR REPLACE FUNCTION is_reserved_username(username_to_check TEXT)
@@ -83,6 +68,34 @@ BEGIN
     RETURN LOWER(username_to_check) = ANY(reserved_words);
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
+
+-- Update any existing reserved usernames before adding the constraint
+-- Change 'admin' to 'systemadmin' to avoid conflicts with reserved words
+UPDATE users 
+SET username = 'systemadmin' 
+WHERE username = 'admin';
+
+-- Update any other reserved usernames that might exist
+UPDATE users 
+SET username = 'system-' || username 
+WHERE username IS NOT NULL 
+  AND is_reserved_username(username) 
+  AND username != 'systemadmin'; -- Avoid double-prefixing
+
+-- Add a check constraint to ensure username format compliance
+-- This enforces the business rules at the database level
+ALTER TABLE users 
+ADD CONSTRAINT chk_username_format 
+CHECK (
+    username IS NULL OR (
+        LENGTH(username) >= 3 AND 
+        LENGTH(username) <= 64 AND
+        username ~ '^[a-z0-9.-]+$' AND
+        username !~ '^[.-]' AND
+        username !~ '[.-]$' AND
+        username !~ '[.-]{2,}'
+    )
+);
 
 -- Add a check constraint for reserved usernames
 ALTER TABLE users 

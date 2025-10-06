@@ -48,27 +48,28 @@ public class AuthController {
     }
     
     /**
-     * Configures authentication routes on the provided router.
+     * Configures authentication routes on the provided router with API versioning.
+     * All routes are prefixed with /api/v1/auth for semantic versioning.
      * 
      * @param router the Vert.x router to configure
      */
     public void configureRoutes(Router router) {
-        // POST /auth/login - User authentication
-        router.post("/auth/login").handler(this::login);
+        // POST /api/v1/auth/login - User authentication
+        router.post("/api/v1/auth/login").handler(this::login);
         
-        // POST /auth/register - User registration
-        router.post("/auth/register").handler(this::register);
+        // POST /api/v1/auth/register - User registration
+        router.post("/api/v1/auth/register").handler(this::register);
         
-        // POST /auth/refresh - Token refresh
-        router.post("/auth/refresh").handler(this::refresh);
+        // POST /api/v1/auth/refresh - Token refresh
+        router.post("/api/v1/auth/refresh").handler(this::refresh);
         
-        // POST /auth/logout - User logout
-        router.post("/auth/logout").handler(this::logout);
+        // POST /api/v1/auth/logout - User logout
+        router.post("/api/v1/auth/logout").handler(this::logout);
     }
     
     /**
      * Handles user login requests.
-     * POST /auth/login
+     * POST /api/v1/auth/login
      * 
      * Expected request body:
      * {
@@ -123,7 +124,7 @@ public class AuthController {
     
     /**
      * Handles user registration requests.
-     * POST /auth/register
+     * POST /api/v1/auth/register
      * 
      * Expected request body:
      * {
@@ -160,8 +161,9 @@ public class AuthController {
         String userAgent = RequestUtil.getUserAgent(context);
         
         // Create registration command with default user role
+        // Pass null as username to trigger automatic generation from firstName.lastName
         RegisterUserCommand command = new RegisterUserCommand(
-            email, // Using email as username for simplicity
+            null, // Let the system auto-generate username from firstName.lastName
             email,
             password,
             firstName,
@@ -189,7 +191,7 @@ public class AuthController {
     
     /**
      * Handles token refresh requests.
-     * POST /auth/refresh
+     * POST /api/v1/auth/refresh
      * 
      * Expected request body:
      * {
@@ -235,7 +237,7 @@ public class AuthController {
     
     /**
      * Handles user logout requests.
-     * POST /auth/logout
+     * POST /api/v1/auth/logout
      * 
      * Requires Authorization header with Bearer token.
      */

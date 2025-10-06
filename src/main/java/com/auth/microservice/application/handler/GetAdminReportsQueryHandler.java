@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -85,7 +86,7 @@ public class GetAdminReportsQueryHandler implements QueryHandler<GetAdminReports
         
         Future<Long> totalUsersFuture = userRepository.countAll();
         Future<Long> activeUsersFuture = userRepository.countActive();
-        Future<Long> recentUsersFuture = userRepository.countCreatedSince(LocalDateTime.now().minusDays(30));
+        Future<Long> recentUsersFuture = userRepository.countCreatedSince(OffsetDateTime.now().minusDays(30));
         
         return Future.all(totalUsersFuture, activeUsersFuture, recentUsersFuture)
             .map(compositeFuture -> {

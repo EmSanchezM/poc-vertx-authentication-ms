@@ -1,45 +1,45 @@
 -- Insertar permisos básicos del sistema
 INSERT INTO permissions (name, resource, action, description) VALUES
 -- Permisos de usuario
-('user.read', 'user', 'read', 'Leer información de usuarios'),
-('user.create', 'user', 'create', 'Crear nuevos usuarios'),
-('user.update', 'user', 'update', 'Actualizar información de usuarios'),
-('user.delete', 'user', 'delete', 'Eliminar usuarios'),
-('user.list', 'user', 'list', 'Listar usuarios del sistema'),
+('USER_READ', 'user', 'read', 'Leer información de usuarios'),
+('USER_CREATE', 'user', 'create', 'Crear nuevos usuarios'),
+('USER_UPDATE', 'user', 'update', 'Actualizar información de usuarios'),
+('USER_DELETE', 'user', 'delete', 'Eliminar usuarios'),
+('USER_LIST', 'user', 'list', 'Listar usuarios del sistema'),
 
 -- Permisos de perfil propio
-('profile.read', 'profile', 'read', 'Leer el propio perfil'),
-('profile.update', 'profile', 'update', 'Actualizar el propio perfil'),
+('PROFILE_READ', 'profile', 'read', 'Leer el propio perfil'),
+('PROFILE_UPDATE', 'profile', 'update', 'Actualizar el propio perfil'),
 
 -- Permisos de roles
-('role.read', 'role', 'read', 'Leer información de roles'),
-('role.create', 'role', 'create', 'Crear nuevos roles'),
-('role.update', 'role', 'update', 'Actualizar roles existentes'),
-('role.delete', 'role', 'delete', 'Eliminar roles'),
-('role.assign', 'role', 'assign', 'Asignar roles a usuarios'),
+('ROLE_READ', 'role', 'read', 'Leer información de roles'),
+('ROLE_CREATE', 'role', 'create', 'Crear nuevos roles'),
+('ROLE_UPDATE', 'role', 'update', 'Actualizar roles existentes'),
+('ROLE_DELETE', 'role', 'delete', 'Eliminar roles'),
+('ROLE_ASSIGN', 'role', 'assign', 'Asignar roles a usuarios'),
 
 -- Permisos de permisos
-('permission.read', 'permission', 'read', 'Leer información de permisos'),
-('permission.create', 'permission', 'create', 'Crear nuevos permisos'),
-('permission.update', 'permission', 'update', 'Actualizar permisos existentes'),
-('permission.delete', 'permission', 'delete', 'Eliminar permisos'),
+('PERMISSION_READ', 'permission', 'read', 'Leer información de permisos'),
+('PERMISSION_CREATE', 'permission', 'create', 'Crear nuevos permisos'),
+('PERMISSION_UPDATE', 'permission', 'update', 'Actualizar permisos existentes'),
+('PERMISSION_DELETE', 'permission', 'delete', 'Eliminar permisos'),
 
 -- Permisos de sesiones
-('session.read', 'session', 'read', 'Leer información de sesiones'),
-('session.manage', 'session', 'manage', 'Gestionar sesiones de usuarios'),
-('session.invalidate', 'session', 'invalidate', 'Invalidar sesiones'),
+('SESSION_READ', 'session', 'read', 'Leer información de sesiones'),
+('SESSION_MANAGE', 'session', 'manage', 'Gestionar sesiones de usuarios'),
+('SESSION_INVALIDATE', 'session', 'invalidate', 'Invalidar sesiones'),
 
 -- Permisos de administración
-('admin.dashboard', 'admin', 'dashboard', 'Acceder al dashboard administrativo'),
-('admin.logs', 'admin', 'logs', 'Acceder a logs del sistema'),
-('admin.metrics', 'admin', 'metrics', 'Acceder a métricas del sistema'),
-('admin.health', 'admin', 'health', 'Acceder a health checks del sistema'),
+('ADMIN_DASHBOARD', 'admin', 'dashboard', 'Acceder al dashboard administrativo'),
+('ADMIN_LOGS', 'admin', 'logs', 'Acceder a logs del sistema'),
+('ADMIN_METRICS', 'admin', 'metrics', 'Acceder a métricas del sistema'),
+('ADMIN_HEALTH', 'admin', 'health', 'Acceder a health checks del sistema'),
 
 -- Permisos de autenticación
-('auth.login', 'auth', 'login', 'Iniciar sesión en el sistema'),
-('auth.logout', 'auth', 'logout', 'Cerrar sesión'),
-('auth.refresh', 'auth', 'refresh', 'Refrescar tokens de autenticación'),
-('auth.register', 'auth', 'register', 'Registrar nuevos usuarios');
+('AUTH_LOGIN', 'auth', 'login', 'Iniciar sesión en el sistema'),
+('AUTH_LOGOUT', 'auth', 'logout', 'Cerrar sesión'),
+('AUTH_REFRESH', 'auth', 'refresh', 'Refrescar tokens de autenticación'),
+('AUTH_REGISTER', 'auth', 'register', 'Registrar nuevos usuarios');
 
 -- Insertar roles básicos del sistema
 INSERT INTO roles (name, description) VALUES
@@ -63,13 +63,13 @@ FROM roles r
 CROSS JOIN permissions p
 WHERE r.name = 'ADMIN'
 AND p.name IN (
-    'user.read', 'user.create', 'user.update', 'user.list',
-    'role.read', 'role.create', 'role.update', 'role.assign',
-    'permission.read',
-    'session.read', 'session.manage', 'session.invalidate',
-    'admin.dashboard', 'admin.logs', 'admin.metrics', 'admin.health',
-    'auth.login', 'auth.logout', 'auth.refresh',
-    'profile.read', 'profile.update'
+    'USER_READ', 'USER_CREATE', 'USER_UPDATE', 'USER_LIST',
+    'ROLE_READ', 'ROLE_CREATE', 'ROLE_UPDATE', 'ROLE_ASSIGN',
+    'PERMISSION_READ',
+    'SESSION_READ', 'SESSION_MANAGE', 'SESSION_INVALIDATE',
+    'ADMIN_DASHBOARD', 'ADMIN_LOGS', 'ADMIN_METRICS', 'ADMIN_HEALTH',
+    'AUTH_LOGIN', 'AUTH_LOGOUT', 'AUTH_REFRESH',
+    'PROFILE_READ', 'PROFILE_UPDATE'
 );
 
 -- Asignar permisos al rol USER_MANAGER
@@ -79,11 +79,11 @@ FROM roles r
 CROSS JOIN permissions p
 WHERE r.name = 'USER_MANAGER'
 AND p.name IN (
-    'user.read', 'user.create', 'user.update', 'user.list',
-    'role.read',
-    'session.read',
-    'auth.login', 'auth.logout', 'auth.refresh',
-    'profile.read', 'profile.update'
+    'USER_READ', 'USER_CREATE', 'USER_UPDATE', 'USER_LIST',
+    'ROLE_READ',
+    'SESSION_READ',
+    'AUTH_LOGIN', 'AUTH_LOGOUT', 'AUTH_REFRESH',
+    'PROFILE_READ', 'PROFILE_UPDATE'
 );
 
 -- Asignar permisos al rol USER
@@ -93,8 +93,8 @@ FROM roles r
 CROSS JOIN permissions p
 WHERE r.name = 'USER'
 AND p.name IN (
-    'auth.login', 'auth.logout', 'auth.refresh',
-    'profile.read', 'profile.update'
+    'AUTH_LOGIN', 'AUTH_LOGOUT', 'AUTH_REFRESH',
+    'PROFILE_READ', 'PROFILE_UPDATE'
 );
 
 -- Asignar permisos al rol GUEST
@@ -104,7 +104,7 @@ FROM roles r
 CROSS JOIN permissions p
 WHERE r.name = 'GUEST'
 AND p.name IN (
-    'auth.login', 'auth.register'
+    'AUTH_LOGIN', 'AUTH_REGISTER'
 );
 
 -- Crear usuario administrador por defecto (contraseña: admin123)

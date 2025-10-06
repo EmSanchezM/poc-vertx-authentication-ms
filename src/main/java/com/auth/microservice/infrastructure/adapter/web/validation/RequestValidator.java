@@ -23,7 +23,7 @@ public class RequestValidator {
     );
     
     private static final Pattern PASSWORD_PATTERN = Pattern.compile(
-        "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$"
+        "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&.#^+=<>~`|\\-_])[A-Za-z\\d@$!%*?&.#^+=<>~`|\\-_]{8,}$"
     );
     
     private static final Pattern UUID_PATTERN = Pattern.compile(
