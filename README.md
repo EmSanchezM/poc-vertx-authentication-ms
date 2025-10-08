@@ -16,7 +16,7 @@ Microservicio de autenticación y autorización basado en roles (RBAC) construid
 make dev
 
 # O usando docker-compose directamente
-docker-compose -f docker-compose.yml -f docker-compose.development.yml up --build
+docker-compose -f docker-compose.development.yml up --build
 ```
 
 ### QA/Staging
