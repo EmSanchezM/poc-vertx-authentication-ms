@@ -51,7 +51,7 @@ public class AuthCommandHandler implements CommandHandler<AuthenticateCommand, A
         
         try {
             Future<Optional<User>> userFuture = findUserByIdentifier(command);
-            logger.info("findUserByIdentifier called successfully");
+            
             return userFuture
                 .compose(userOpt -> {
                     if (userOpt.isEmpty()) {
@@ -86,14 +86,9 @@ public class AuthCommandHandler implements CommandHandler<AuthenticateCommand, A
                         permissions
                     );
                     
-                    logger.info("Token pair generated successfully");
-                    
                     // Create and save session
                     String accessTokenHash = TokenHashUtil.hashToken(tokenPair.accessToken());
                     String refreshTokenHash = TokenHashUtil.hashToken(tokenPair.refreshToken());
-                    
-                    logger.info("Creating session for user: {} with refresh token hash: {}", 
-                        user.getId(), refreshTokenHash.substring(0, 10) + "...");
                     
                     Session session = new Session(
                         user.getId(),
@@ -102,6 +97,7 @@ public class AuthCommandHandler implements CommandHandler<AuthenticateCommand, A
                         tokenPair.refreshTokenExpiration(),
                         command.getIpAddress(),
                         command.getUserAgent(),
+                        "unknown"
                     );
                     
                     logger.info("About to save session for user: {}", user.getId());

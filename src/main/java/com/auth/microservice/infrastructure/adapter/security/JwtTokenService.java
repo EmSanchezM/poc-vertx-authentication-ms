@@ -9,6 +9,7 @@ import io.vertx.core.json.JsonObject;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.*;
 
@@ -200,8 +201,8 @@ public class JwtTokenService implements JWTService {
         String refreshToken = generateRefreshToken(userId, email);
         
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime accessExpiration = now.plusSeconds(accessTokenExpirySeconds);
-        LocalDateTime refreshExpiration = now.plusSeconds(refreshTokenExpirySeconds);
+        OffsetDateTime accessExpiration = now.plusSeconds(accessTokenExpirySeconds).atOffset(java.time.ZoneOffset.UTC);
+        OffsetDateTime refreshExpiration = now.plusSeconds(refreshTokenExpirySeconds).atOffset(java.time.ZoneOffset.UTC);
         
         return new TokenPair(accessToken, refreshToken, accessExpiration, refreshExpiration);
     }

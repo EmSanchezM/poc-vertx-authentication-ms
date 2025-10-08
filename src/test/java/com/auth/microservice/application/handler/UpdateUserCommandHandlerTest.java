@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -50,8 +51,8 @@ class UpdateUserCommandHandlerTest {
             "John",
             "Doe",
             true,
-            java.time.LocalDateTime.now().minusDays(1),
-            java.time.LocalDateTime.now().minusDays(1)
+            OffsetDateTime.now().minusDays(1),
+            OffsetDateTime.now().minusDays(1)
         );
     }
 

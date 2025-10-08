@@ -19,7 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -59,12 +59,12 @@ class RefreshTokenCommandHandlerTest {
             "John",
             "Doe",
             true,
-            LocalDateTime.now(),
-            LocalDateTime.now()
+            OffsetDateTime.now(),
+            OffsetDateTime.now()
         );
         
         // Add a test role with permissions
-        Role testRole = new Role(UUID.randomUUID(), "USER", "Standard user role", LocalDateTime.now());
+        Role testRole = new Role(UUID.randomUUID(), "USER", "Standard user role", OffsetDateTime.now());
         Permission testPermission = new Permission(UUID.randomUUID(), "READ_PROFILE", "users", "read", "Read user profile");
         testRole.addPermission(testPermission);
         testUser.addRole(testRole);
@@ -88,8 +88,8 @@ class RefreshTokenCommandHandlerTest {
         JWTService.TokenPair newTokenPair = new JWTService.TokenPair(
             "newAccessToken",
             "newRefreshToken",
-            LocalDateTime.now().plusHours(1),
-            LocalDateTime.now().plusDays(7)
+            OffsetDateTime.now().plusHours(1),
+            OffsetDateTime.now().plusDays(7)
         );
 
         when(jwtService.validateToken("validRefreshToken"))

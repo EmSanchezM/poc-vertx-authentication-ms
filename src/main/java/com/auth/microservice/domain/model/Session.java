@@ -1,5 +1,6 @@
 package com.auth.microservice.domain.model;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 import java.util.UUID;
@@ -32,7 +33,7 @@ public class Session {
         this.lastUsedAt = OffsetDateTime.now();
         this.ipAddress = validateIpAddress(ipAddress);
         this.userAgent = userAgent != null ? userAgent.trim() : "";
-        this.countryCode = countryCode !==null ? countryCode : "";
+        this.countryCode = countryCode != null ? countryCode : "";
         this.isActive = true;
         
         if (expiresAt.isBefore(OffsetDateTime.now())) {
@@ -42,21 +43,21 @@ public class Session {
     
     // Constructor for existing sessions (from database)
     public Session(UUID id, UUID userId, String accessTokenHash, String refreshTokenHash,
-                   OffsetDateTime expiresAt, OffsetDateTime createdAt, OffsetDateTime lastUsedAt,
+                   OffsetDateTime expiresAt2, OffsetDateTime createdAt2, OffsetDateTime lastUsedAt2,
                    String ipAddress, String userAgent, String countryCode, boolean isActive) {
         this.id = Objects.requireNonNull(id, "Session ID cannot be null");
         this.userId = Objects.requireNonNull(userId, "User ID cannot be null");
         this.accessTokenHash = validateTokenHash(accessTokenHash, "Access token hash");
         this.refreshTokenHash = validateTokenHash(refreshTokenHash, "Refresh token hash");
-        this.expiresAt = Objects.requireNonNull(expiresAt, "Expiration time cannot be null");
-        this.createdAt = Objects.requireNonNull(createdAt, "Created at cannot be null");
-        this.lastUsedAt = Objects.requireNonNull(lastUsedAt, "Last used at cannot be null");
+        this.expiresAt = Objects.requireNonNull(expiresAt2, "Expiration time cannot be null");
+        this.createdAt = Objects.requireNonNull(createdAt2, "Created at cannot be null");
+        this.lastUsedAt = Objects.requireNonNull(lastUsedAt2, "Last used at cannot be null");
         this.ipAddress = validateIpAddress(ipAddress);
         this.userAgent = userAgent != null ? userAgent.trim() : "";
         this.countryCode = countryCode != null ? countryCode : "";
         this.isActive = isActive;
     }
-    
+
     private String validateTokenHash(String tokenHash, String fieldName) {
         if (tokenHash == null || tokenHash.trim().isEmpty()) {
             throw new IllegalArgumentException(fieldName + " cannot be null or empty");

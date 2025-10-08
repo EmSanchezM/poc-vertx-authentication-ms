@@ -1,9 +1,7 @@
-package com.auth.microservice.infrastructure.adapter.rest;
+package com.auth.microservice.infrastructure.adapter.web;
 
 import com.auth.microservice.infrastructure.health.HealthCheckService;
 import com.auth.microservice.infrastructure.metrics.MetricsService;
-import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;

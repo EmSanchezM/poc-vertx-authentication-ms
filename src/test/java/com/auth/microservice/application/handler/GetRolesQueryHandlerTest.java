@@ -16,7 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -45,8 +45,8 @@ class GetRolesQueryHandlerTest {
     void setUp() {
         handler = new GetRolesQueryHandler(roleRepository, cacheService);
         
-        Role role1 = new Role(UUID.randomUUID(), "ADMIN", "Administrator role", LocalDateTime.now());
-        Role role2 = new Role(UUID.randomUUID(), "USER", "Regular user role", LocalDateTime.now());
+        Role role1 = new Role(UUID.randomUUID(), "ADMIN", "Administrator role", OffsetDateTime.now());
+        Role role2 = new Role(UUID.randomUUID(), "USER", "Regular user role", OffsetDateTime.now());
         testRoles = Arrays.asList(role1, role2);
         
         testPagination = new Pagination(0, 10);

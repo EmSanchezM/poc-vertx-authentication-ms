@@ -21,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -61,11 +62,11 @@ class AssignRoleCommandHandlerTest {
             "John",
             "Doe",
             true,
-            LocalDateTime.now().minusDays(1),
-            LocalDateTime.now().minusDays(1)
+            OffsetDateTime.now().minusDays(1),
+            OffsetDateTime.now().minusDays(1)
         );
-        
-        testRole = new Role(testRoleId, "ADMIN", "Administrator role", LocalDateTime.now());
+
+        testRole = new Role(testRoleId, "ADMIN", "Administrator role", OffsetDateTime.now());
         Permission testPermission = new Permission(UUID.randomUUID(), "MANAGE_USERS", "users", "manage", "Manage users");
         testRole.addPermission(testPermission);
     }

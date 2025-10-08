@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,10 +14,10 @@ class SessionTest {
     @Test
     void shouldCreateNewSession() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         
         Session session = new Session(userId, "accessTokenHash", "refreshTokenHash", 
-                                    expiresAt, "192.168.1.1", "Mozilla/5.0");
+                                    expiresAt, "192.168.1.1", "Mozilla/5.0", "unknown");
         
         assertNotNull(session.getId());
         assertEquals(userId, session.getUserId());
@@ -28,6 +28,7 @@ class SessionTest {
         assertNotNull(session.getLastUsedAt());
         assertEquals("192.168.1.1", session.getIpAddress());
         assertEquals("Mozilla/5.0", session.getUserAgent());
+        assertEquals("unknown", session.getCountryCode());
         assertTrue(session.isActive());
         assertFalse(session.isExpired());
         assertTrue(session.isValid());
@@ -37,13 +38,13 @@ class SessionTest {
     void shouldCreateExistingSessionFromDatabase() {
         UUID id = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
-        LocalDateTime createdAt = LocalDateTime.now().minusMinutes(30);
-        LocalDateTime lastUsedAt = LocalDateTime.now().minusMinutes(5);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
+        OffsetDateTime createdAt = OffsetDateTime.now().minusMinutes(30);
+        OffsetDateTime lastUsedAt = OffsetDateTime.now().minusMinutes(5);
         
-        Session session = new Session(id, userId, "accessTokenHash", "refreshTokenHash",
-                                    expiresAt, createdAt, lastUsedAt, "192.168.1.1", 
-                                    "Mozilla/5.0", true);
+        Session session = new Session(id, "accessTokenHash", "refreshTokenHash",
+                                    expiresAt, "192.168.1.1", 
+                                    "Mozilla/5.0", "unknown");
         
         assertEquals(id, session.getId());
         assertEquals(userId, session.getUserId());
@@ -54,10 +55,10 @@ class SessionTest {
     @Test
     void shouldTrimTokenHashes() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         
         Session session = new Session(userId, "  accessTokenHash  ", "  refreshTokenHash  ", 
-                                    expiresAt, "192.168.1.1", "Mozilla/5.0");
+                                    expiresAt, "192.168.1.1", "Mozilla/5.0", null);
         
         assertEquals("accessTokenHash", session.getAccessTokenHash());
         assertEquals("refreshTokenHash", session.getRefreshTokenHash());
@@ -66,10 +67,10 @@ class SessionTest {
     @Test
     void shouldHandleNullUserAgent() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         
         Session session = new Session(userId, "accessTokenHash", "refreshTokenHash", 
-                                    expiresAt, "192.168.1.1", null);
+                                    expiresAt, "192.168.1.1", null, null);
         
         assertEquals("", session.getUserAgent());
     }
@@ -77,10 +78,10 @@ class SessionTest {
     @Test
     void shouldTrimUserAgent() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         
         Session session = new Session(userId, "accessTokenHash", "refreshTokenHash", 
-                                    expiresAt, "192.168.1.1", "  Mozilla/5.0  ");
+                                    expiresAt, "192.168.1.1", "  Mozilla/5.0  ", null);
         
         assertEquals("Mozilla/5.0", session.getUserAgent());
     }
@@ -89,19 +90,19 @@ class SessionTest {
     @ValueSource(strings = {"192.168.1.1", "10.0.0.1", "2001:0db8:85a3:0000:0000:8a2e:0370:7334", "unknown"})
     void shouldAcceptValidIpAddresses(String validIp) {
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         
         assertDoesNotThrow(() -> new Session(userId, "accessTokenHash", "refreshTokenHash", 
-                                           expiresAt, validIp, "Mozilla/5.0"));
+                                           expiresAt, validIp, "Mozilla/5.0", null));
     }
     
     @Test
     void shouldHandleNullIpAddress() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         
         Session session = new Session(userId, "accessTokenHash", "refreshTokenHash", 
-                                    expiresAt, null, "Mozilla/5.0");
+                                    expiresAt, null, "Mozilla/5.0", null);
         
         assertEquals("unknown", session.getIpAddress());
     }
@@ -109,54 +110,54 @@ class SessionTest {
     @Test
     void shouldRejectInvalidIpAddress() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         
         assertThrows(IllegalArgumentException.class, 
             () -> new Session(userId, "accessTokenHash", "refreshTokenHash", 
-                            expiresAt, "invalid.ip.address", "Mozilla/5.0"));
+                            expiresAt, "invalid.ip.address", "Mozilla/5.0", null));
     }
     
     @Test
     void shouldRejectNullRequiredFields() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         
         assertThrows(NullPointerException.class, 
             () -> new Session(null, "accessTokenHash", "refreshTokenHash", 
-                            expiresAt, "192.168.1.1", "Mozilla/5.0"));
+                            expiresAt, "192.168.1.1", "Mozilla/5.0", null));
         
         assertThrows(IllegalArgumentException.class, 
             () -> new Session(userId, null, "refreshTokenHash", 
-                            expiresAt, "192.168.1.1", "Mozilla/5.0"));
+                            expiresAt, "192.168.1.1", "Mozilla/5.0", null));
         
         assertThrows(IllegalArgumentException.class, 
             () -> new Session(userId, "accessTokenHash", null, 
-                            expiresAt, "192.168.1.1", "Mozilla/5.0"));
+                            expiresAt, "192.168.1.1", "Mozilla/5.0", null));
         
         assertThrows(NullPointerException.class, 
             () -> new Session(userId, "accessTokenHash", "refreshTokenHash", 
-                            null, "192.168.1.1", "Mozilla/5.0"));
+                            null, "192.168.1.1", "Mozilla/5.0", null));
     }
     
     @Test
     void shouldRejectPastExpirationTime() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime pastTime = LocalDateTime.now().minusHours(1);
+        OffsetDateTime pastTime = OffsetDateTime.now().minusHours(1);
         
         assertThrows(IllegalArgumentException.class, 
             () -> new Session(userId, "accessTokenHash", "refreshTokenHash", 
-                            pastTime, "192.168.1.1", "Mozilla/5.0"));
+                            pastTime, "192.168.1.1", "Mozilla/5.0", null));
     }
     
     @Test
     void shouldUpdateLastUsed() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         
         Session session = new Session(userId, "accessTokenHash", "refreshTokenHash", 
-                                    expiresAt, "192.168.1.1", "Mozilla/5.0");
+                                    expiresAt, "192.168.1.1", "Mozilla/5.0", null);
         
-        LocalDateTime originalLastUsed = session.getLastUsedAt();
+        OffsetDateTime originalLastUsed = session.getLastUsedAt();
         
         // Small delay to ensure timestamp difference
         try { Thread.sleep(1); } catch (InterruptedException e) {}
@@ -168,10 +169,10 @@ class SessionTest {
     @Test
     void shouldInvalidateAndActivateSession() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         
         Session session = new Session(userId, "accessTokenHash", "refreshTokenHash", 
-                                    expiresAt, "192.168.1.1", "Mozilla/5.0");
+                                    expiresAt, "192.168.1.1", "Mozilla/5.0", null);
         
         assertTrue(session.isActive());
         assertTrue(session.isValid());
@@ -188,12 +189,12 @@ class SessionTest {
     @Test
     void shouldDetectExpiredSession() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime pastTime = LocalDateTime.now().minusHours(1);
+        OffsetDateTime pastTime = OffsetDateTime.now().minusHours(1);
         
         // Create with existing constructor to bypass validation
         Session session = new Session(UUID.randomUUID(), userId, "accessTokenHash", "refreshTokenHash",
-                                    pastTime, LocalDateTime.now().minusHours(2), LocalDateTime.now().minusHours(1),
-                                    "192.168.1.1", "Mozilla/5.0", true);
+                                    pastTime, OffsetDateTime.now().minusHours(2), OffsetDateTime.now().minusHours(1),
+                                    "192.168.1.1", "Mozilla/5.0", "unknown", true);
         
         assertTrue(session.isExpired());
         assertFalse(session.isValid());
@@ -202,13 +203,13 @@ class SessionTest {
     @Test
     void shouldUpdateTokens() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         
         Session session = new Session(userId, "oldAccessToken", "oldRefreshToken", 
-                                    expiresAt, "192.168.1.1", "Mozilla/5.0");
+                                    expiresAt, "192.168.1.1", "Mozilla/5.0", null);
         
-        LocalDateTime newExpiresAt = LocalDateTime.now().plusHours(2);
-        LocalDateTime originalLastUsed = session.getLastUsedAt();
+        OffsetDateTime newExpiresAt = OffsetDateTime.now().plusHours(2);
+        OffsetDateTime originalLastUsed = session.getLastUsedAt();
         
         // Small delay to ensure timestamp difference
         try { Thread.sleep(1); } catch (InterruptedException e) {}
@@ -224,12 +225,12 @@ class SessionTest {
     @Test
     void shouldRejectInvalidTokenUpdate() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         
         Session session = new Session(userId, "accessTokenHash", "refreshTokenHash", 
-                                    expiresAt, "192.168.1.1", "Mozilla/5.0");
+                                    expiresAt, "192.168.1.1", "Mozilla/5.0", null);
         
-        LocalDateTime pastTime = LocalDateTime.now().minusHours(1);
+        OffsetDateTime pastTime = OffsetDateTime.now().minusHours(1);
         
         assertThrows(IllegalArgumentException.class, 
             () -> session.updateTokens("newAccessToken", "newRefreshToken", pastTime));
@@ -240,17 +241,17 @@ class SessionTest {
         UUID id = UUID.randomUUID();
         UUID userId1 = UUID.randomUUID();
         UUID userId2 = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
-        LocalDateTime createdAt = LocalDateTime.now();
-        LocalDateTime lastUsedAt = LocalDateTime.now();
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
+        OffsetDateTime createdAt = OffsetDateTime.now();
+        OffsetDateTime lastUsedAt = OffsetDateTime.now();
         
         Session session1 = new Session(id, userId1, "token1", "refresh1", expiresAt, 
-                                     createdAt, lastUsedAt, "192.168.1.1", "Mozilla/5.0", true);
+                                     createdAt, lastUsedAt, "192.168.1.1", "Mozilla/5.0", "unknown", true);
         Session session2 = new Session(id, userId2, "token2", "refresh2", expiresAt, 
-                                     createdAt, lastUsedAt, "192.168.1.2", "Chrome", false);
+                                     createdAt, lastUsedAt, "192.168.1.2", "Chrome", "unknown", false);
         Session session3 = new Session(UUID.randomUUID(), userId1, "token1", "refresh1", expiresAt, 
-                                     createdAt, lastUsedAt, "192.168.1.1", "Mozilla/5.0", true);
-        
+                                     createdAt, lastUsedAt, "192.168.1.1", "Mozilla/5.0", "unknown", true);
+
         assertEquals(session1, session2); // Same ID
         assertNotEquals(session1, session3); // Different ID
         assertEquals(session1.hashCode(), session2.hashCode());
@@ -259,10 +260,10 @@ class SessionTest {
     @Test
     void shouldImplementToString() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         
         Session session = new Session(userId, "accessTokenHash", "refreshTokenHash", 
-                                    expiresAt, "192.168.1.1", "Mozilla/5.0");
+                                    expiresAt, "192.168.1.1", "Mozilla/5.0", "unknown");
         
         String toString = session.toString();
         assertTrue(toString.contains(userId.toString()));

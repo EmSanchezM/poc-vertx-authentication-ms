@@ -151,7 +151,7 @@ public class GetAdminReportsQueryHandler implements QueryHandler<GetAdminReports
         
         Future<Long> activeSessionsFuture = sessionRepository.countActiveSessions();
         Future<Long> totalSessionsFuture = sessionRepository.countTotalSessions();
-        Future<Long> recentSessionsFuture = sessionRepository.countSessionsCreatedSince(LocalDateTime.now().minusDays(1));
+        Future<Long> recentSessionsFuture = sessionRepository.countSessionsCreatedSince(OffsetDateTime.now().minusDays(1));
         
         return Future.all(activeSessionsFuture, totalSessionsFuture, recentSessionsFuture)
             .map(compositeFuture -> {

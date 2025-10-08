@@ -10,6 +10,8 @@ import com.auth.microservice.domain.model.Email;
 import com.auth.microservice.domain.model.Role;
 import com.auth.microservice.domain.model.User;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+
 import com.auth.microservice.domain.service.JWTService;
 import com.auth.microservice.domain.service.RateLimitService;
 import io.vertx.core.Future;
@@ -29,7 +31,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.UUID;
 
@@ -84,8 +85,8 @@ class AuthControllerTest {
         JWTService.TokenPair mockTokenPair = new JWTService.TokenPair(
             "access-token",
             "refresh-token",
-            LocalDateTime.now().plusHours(1),
-            LocalDateTime.now().plusDays(7)
+            OffsetDateTime.now().plusHours(1),
+            OffsetDateTime.now().plusDays(7)
         );
         AuthenticationResult mockResult = AuthenticationResult.success(mockUser, mockTokenPair);
         
@@ -128,8 +129,8 @@ class AuthControllerTest {
         JWTService.TokenPair mockTokenPair = new JWTService.TokenPair(
             "access-token",
             "refresh-token",
-            LocalDateTime.now().plusHours(1),
-            LocalDateTime.now().plusDays(7)
+            OffsetDateTime.now().plusHours(1),
+            OffsetDateTime.now().plusDays(7)
         );
         AuthenticationResult mockResult = AuthenticationResult.success(mockUser, mockTokenPair);
         
@@ -278,8 +279,8 @@ class AuthControllerTest {
         JWTService.TokenPair mockTokenPair = new JWTService.TokenPair(
             "new-access-token",
             "new-refresh-token",
-            LocalDateTime.now().plusHours(1),
-            LocalDateTime.now().plusDays(7)
+            OffsetDateTime.now().plusHours(1),
+            OffsetDateTime.now().plusDays(7)
         );
         
         when(commandBus.<JWTService.TokenPair>send(any()))
@@ -354,12 +355,12 @@ class AuthControllerTest {
                 "John",
                 "Doe",
                 true,
-                LocalDateTime.now(),
-                LocalDateTime.now()
+                OffsetDateTime.now(),
+                OffsetDateTime.now()
             );
             
             // Add a mock role
-            Role userRole = new Role(UUID.randomUUID(), "USER", "Standard user role", LocalDateTime.now());
+            Role userRole = new Role(UUID.randomUUID(), "USER", "Standard user role", OffsetDateTime.now());
             user.addRole(userRole);
             
             return user;

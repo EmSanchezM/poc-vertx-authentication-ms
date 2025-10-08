@@ -19,7 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -58,8 +58,8 @@ class GetUserProfileQueryHandlerTest {
             "John",
             "Doe",
             true,
-            LocalDateTime.now().minusDays(1),
-            LocalDateTime.now()
+            OffsetDateTime.now().minusDays(1),
+            OffsetDateTime.now()
         );
         
         testPermission = new Permission(
@@ -74,7 +74,7 @@ class GetUserProfileQueryHandlerTest {
             UUID.randomUUID(),
             "USER",
             "Standard user role",
-            LocalDateTime.now().minusDays(1)
+            OffsetDateTime.now().minusDays(1)
         );
         testRole.addPermission(testPermission);
         testUser.addRole(testRole);

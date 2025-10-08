@@ -16,7 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -51,8 +51,8 @@ class FindUserByEmailQueryHandlerTest {
             "John",
             "Doe",
             true,
-            LocalDateTime.now().minusDays(1),
-            LocalDateTime.now()
+            OffsetDateTime.now().minusDays(1),
+            OffsetDateTime.now()
         );
         testQuery = new FindUserByEmailQuery("requester-id", testEmail, false, false);
     }

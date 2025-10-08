@@ -2,7 +2,7 @@ package com.auth.microservice.infrastructure.monitoring;
 
 import com.auth.microservice.infrastructure.health.HealthCheckService;
 import com.auth.microservice.infrastructure.metrics.MetricsService;
-import com.auth.microservice.infrastructure.adapter.rest.MonitoringController;
+import com.auth.microservice.infrastructure.adapter.web.MonitoringController;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpServer;

@@ -8,6 +8,7 @@ import com.auth.microservice.domain.model.Permission;
 import com.auth.microservice.domain.model.Role;
 import com.auth.microservice.domain.model.User;
 import com.auth.microservice.domain.port.UserRepository;
+import com.auth.microservice.domain.port.SessionRepository;
 import com.auth.microservice.domain.service.JWTService;
 import com.auth.microservice.domain.service.PasswordService;
 import io.vertx.core.Future;
@@ -19,7 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -34,6 +35,9 @@ class AuthCommandHandlerTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private SessionRepository sessionRepository;
     
     @Mock
     private PasswordService passwordService;
@@ -47,7 +51,7 @@ class AuthCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new AuthCommandHandler(userRepository, passwordService, jwtService);
+        handler = new AuthCommandHandler(userRepository, sessionRepository, passwordService, jwtService);
         
         testEmail = new Email("test@example.com");
         testUser = new User(
@@ -58,12 +62,12 @@ class AuthCommandHandlerTest {
             "John",
             "Doe",
             true,
-            LocalDateTime.now(),
-            LocalDateTime.now()
+            OffsetDateTime.now(),
+            OffsetDateTime.now()
         );
         
         // Add a test role with permissions
-        Role testRole = new Role(UUID.randomUUID(), "USER", "Standard user role", LocalDateTime.now());
+        Role testRole = new Role(UUID.randomUUID(), "USER", "Standard user role", OffsetDateTime.now());
         Permission testPermission = new Permission(UUID.randomUUID(), "READ_PROFILE", "users", "read", "Read user profile");
         testRole.addPermission(testPermission);
         testUser.addRole(testRole);
@@ -82,8 +86,8 @@ class AuthCommandHandlerTest {
         JWTService.TokenPair tokenPair = new JWTService.TokenPair(
             "accessToken",
             "refreshToken",
-            LocalDateTime.now().plusHours(1),
-            LocalDateTime.now().plusDays(7)
+            OffsetDateTime.now().plusHours(1),
+            OffsetDateTime.now().plusDays(7)
         );
 
         when(userRepository.findByEmailWithRoles(any(Email.class)))

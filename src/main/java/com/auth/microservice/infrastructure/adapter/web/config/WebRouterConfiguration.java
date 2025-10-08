@@ -231,7 +231,7 @@ public class WebRouterConfiguration {
                                          com.auth.microservice.infrastructure.adapter.web.AuthController authController,
                                          com.auth.microservice.infrastructure.adapter.web.UserController userController,
                                          com.auth.microservice.infrastructure.adapter.web.AdminController adminController,
-                                         com.auth.microservice.infrastructure.adapter.rest.MonitoringController monitoringController,
+                                         com.auth.microservice.infrastructure.adapter.web.MonitoringController monitoringController,
                                          com.auth.microservice.infrastructure.adapter.web.DebugController debugController) {
         
         // Configurar rutas de autenticación (públicas)

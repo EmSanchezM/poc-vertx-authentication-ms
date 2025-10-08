@@ -21,7 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -62,7 +62,7 @@ class CreateUserCommandHandlerTest {
             "Doe"
         );
         
-        testRole = new Role(UUID.randomUUID(), "USER", "Standard user role", LocalDateTime.now());
+        testRole = new Role(UUID.randomUUID(), "USER", "Standard user role", OffsetDateTime.now());
         Permission testPermission = new Permission(UUID.randomUUID(), "READ_PROFILE", "users", "read", "Read user profile");
         testRole.addPermission(testPermission);
     }

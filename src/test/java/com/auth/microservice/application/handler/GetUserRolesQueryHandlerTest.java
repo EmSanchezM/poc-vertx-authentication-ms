@@ -15,7 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -45,8 +45,8 @@ class GetUserRolesQueryHandlerTest {
         handler = new GetUserRolesQueryHandler(roleRepository, cacheService);
         testUserId = UUID.randomUUID();
         
-        Role role1 = new Role(UUID.randomUUID(), "ADMIN", "Administrator role", LocalDateTime.now());
-        Role role2 = new Role(UUID.randomUUID(), "USER", "Regular user role", LocalDateTime.now());
+        Role role1 = new Role(UUID.randomUUID(), "ADMIN", "Administrator role", OffsetDateTime.now());
+        Role role2 = new Role(UUID.randomUUID(), "USER", "Regular user role", OffsetDateTime.now());
         testRoles = Arrays.asList(role1, role2);
         
         testQuery = new GetUserRolesQuery("requester-id", testUserId);
@@ -106,8 +106,8 @@ class GetUserRolesQueryHandlerTest {
             // Given
             GetUserRolesQuery queryWithPermissions = new GetUserRolesQuery("requester-id", testUserId, true);
             List<Role> rolesWithoutPermissions = Arrays.asList(
-                new Role(UUID.randomUUID(), "ADMIN", "Administrator role", LocalDateTime.now()),
-                new Role(UUID.randomUUID(), "USER", "Regular user role", LocalDateTime.now())
+                new Role(UUID.randomUUID(), "ADMIN", "Administrator role", OffsetDateTime.now()),
+                new Role(UUID.randomUUID(), "USER", "Regular user role", OffsetDateTime.now())
             );
             
             when(cacheService.getCachedUserRoles(testUserId))
@@ -134,7 +134,7 @@ class GetUserRolesQueryHandlerTest {
             // Given
             GetUserRolesQuery queryWithPermissions = new GetUserRolesQuery("requester-id", testUserId, true);
             // Simulate roles with permissions already cached
-            Role roleWithPermissions = new Role(UUID.randomUUID(), "ADMIN", "Administrator role", LocalDateTime.now());
+            Role roleWithPermissions = new Role(UUID.randomUUID(), "ADMIN", "Administrator role", OffsetDateTime.now());
             roleWithPermissions.addPermission(new com.auth.microservice.domain.model.Permission(
                 UUID.randomUUID(), "READ_USERS", "users", "read", "Read users permission"
             ));

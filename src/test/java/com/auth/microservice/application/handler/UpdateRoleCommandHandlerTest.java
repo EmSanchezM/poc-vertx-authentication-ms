@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,7 +41,7 @@ class UpdateRoleCommandHandlerTest {
         handler = new UpdateRoleCommandHandler(roleRepository, eventPublisher);
         
         testRoleId = UUID.randomUUID();
-        testRole = new Role(testRoleId, "ADMIN", "Administrator role", java.time.LocalDateTime.now());
+        testRole = new Role(testRoleId, "ADMIN", "Administrator role", OffsetDateTime.now());
     }
 
     @Test
@@ -54,7 +55,7 @@ class UpdateRoleCommandHandlerTest {
             "Test-Agent"
         );
 
-        Role updatedRole = new Role(testRoleId, "ADMIN", "Updated administrator role", java.time.LocalDateTime.now());
+        Role updatedRole = new Role(testRoleId, "ADMIN", "Updated administrator role", OffsetDateTime.now());
 
         when(roleRepository.findByIdWithPermissions(testRoleId))
             .thenReturn(Future.succeededFuture(Optional.of(testRole)));
@@ -122,7 +123,7 @@ class UpdateRoleCommandHandlerTest {
             "Test-Agent"
         );
 
-        Role updatedRole = new Role(testRoleId, "ADMIN", null, java.time.LocalDateTime.now());
+        Role updatedRole = new Role(testRoleId, "ADMIN", null, OffsetDateTime.now());
 
         when(roleRepository.findByIdWithPermissions(testRoleId))
             .thenReturn(Future.succeededFuture(Optional.of(testRole)));
@@ -190,7 +191,7 @@ class UpdateRoleCommandHandlerTest {
             "Test-Agent"
         );
 
-        Role updatedRole = new Role(testRoleId, "ADMIN", "Updated administrator role", java.time.LocalDateTime.now());
+        Role updatedRole = new Role(testRoleId, "ADMIN", "Updated administrator role", OffsetDateTime.now());
 
         when(roleRepository.findByIdWithPermissions(testRoleId))
             .thenReturn(Future.succeededFuture(Optional.of(testRole)));

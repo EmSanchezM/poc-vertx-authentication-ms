@@ -102,7 +102,7 @@ public class InvalidateAllUserSessionsCommandHandler implements CommandHandler<I
         
         // Anomaly 3: Rapid session creation pattern (potential brute force or bot activity)
         long recentSessions = allSessions.stream()
-            .filter(session -> session.getCreatedAt().isAfter(java.time.LocalDateTime.now().minusHours(1)))
+            .filter(session -> session.getCreatedAt().isAfter(java.time.OffsetDateTime.now().minusHours(1)))
             .count();
         
         if (recentSessions > 5) {

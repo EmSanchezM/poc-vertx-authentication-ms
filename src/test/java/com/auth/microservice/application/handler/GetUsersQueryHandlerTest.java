@@ -17,7 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -55,8 +55,8 @@ class GetUsersQueryHandlerTest {
                 "John",
                 "Doe",
                 true,
-                LocalDateTime.now().minusDays(2),
-                LocalDateTime.now().minusDays(1)
+                OffsetDateTime.now().minusDays(2),
+                OffsetDateTime.now().minusDays(1)
             ),
             new User(
                 UUID.randomUUID(),
@@ -66,8 +66,8 @@ class GetUsersQueryHandlerTest {
                 "Jane",
                 "Smith",
                 true,
-                LocalDateTime.now().minusDays(1),
-                LocalDateTime.now()
+                OffsetDateTime.now().minusDays(1),
+                OffsetDateTime.now()
             )
         );
         

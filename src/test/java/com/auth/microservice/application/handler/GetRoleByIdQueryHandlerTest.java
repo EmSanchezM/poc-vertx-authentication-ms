@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -42,7 +43,7 @@ class GetRoleByIdQueryHandlerTest {
     void setUp() {
         handler = new GetRoleByIdQueryHandler(roleRepository, cacheService);
         testRoleId = UUID.randomUUID();
-        testRole = new Role(testRoleId, "ADMIN", "Administrator role", LocalDateTime.now());
+        testRole = new Role(testRoleId, "ADMIN", "Administrator role", OffsetDateTime.now());
         testQuery = new GetRoleByIdQuery("requester-id", testRoleId);
     }
 
@@ -117,7 +118,7 @@ class GetRoleByIdQueryHandlerTest {
         void shouldLoadRoleWithPermissionsWhenRequestedAndNotCachedWithPermissions(VertxTestContext testContext) {
             // Given
             GetRoleByIdQuery queryWithPermissions = new GetRoleByIdQuery("requester-id", testRoleId, true);
-            Role roleWithoutPermissions = new Role(testRoleId, "ADMIN", "Administrator role", LocalDateTime.now());
+            Role roleWithoutPermissions = new Role(testRoleId, "ADMIN", "Administrator role", OffsetDateTime.now());
             
             when(cacheService.getCachedRoleById(testRoleId))
                 .thenReturn(Future.succeededFuture(Optional.of(Optional.of(roleWithoutPermissions))));

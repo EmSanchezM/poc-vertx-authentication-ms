@@ -110,7 +110,6 @@ public class AuthController {
         // Execute authentication through command bus
         commandBus.<AuthenticationResult>send(command)
             .onSuccess(result -> {
-                logger.info(result);
                 if (result.isSuccess()) {
                     handleSuccessfulLogin(context, result);
                 } else {

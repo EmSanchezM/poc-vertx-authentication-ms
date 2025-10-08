@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Set;
 import java.util.UUID;
 
@@ -26,7 +26,7 @@ class RoleTest {
     @Test
     void shouldCreateExistingRoleFromDatabase() {
         UUID id = UUID.randomUUID();
-        LocalDateTime createdAt = LocalDateTime.now().minusDays(1);
+        OffsetDateTime createdAt = OffsetDateTime.now().minusDays(1);
         Role role = new Role(id, "USER", "Regular user role", createdAt);
         
         assertEquals(id, role.getId());
@@ -173,7 +173,7 @@ class RoleTest {
     @Test
     void shouldImplementEqualsAndHashCode() {
         UUID id = UUID.randomUUID();
-        LocalDateTime createdAt = LocalDateTime.now();
+        OffsetDateTime createdAt = OffsetDateTime.now();
         
         Role role1 = new Role(id, "ADMIN", "Description 1", createdAt);
         Role role2 = new Role(id, "USER", "Description 2", createdAt.plusDays(1));

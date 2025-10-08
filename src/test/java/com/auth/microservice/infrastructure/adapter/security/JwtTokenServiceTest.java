@@ -12,6 +12,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.crypto.SecretKey;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.Set;
 
@@ -285,12 +286,12 @@ class JwtTokenServiceTest {
             String userId = "user123";
             String email = "user@example.com";
             Set<String> permissions = Set.of("READ_USERS");
-            LocalDateTime beforeGeneration = LocalDateTime.now();
+            OffsetDateTime beforeGeneration = OffsetDateTime.now();
             
             // When
             JWTService.TokenPair tokenPair = jwtService.generateTokenPair(userId, email, permissions);
-            LocalDateTime afterGeneration = LocalDateTime.now();
-            
+            OffsetDateTime afterGeneration = OffsetDateTime.now();
+
             // Then - Access token expires in ~15 minutes (900 seconds)
             assertThat(tokenPair.accessTokenExpiration()).isAfter(beforeGeneration.plusSeconds(890));
             assertThat(tokenPair.accessTokenExpiration()).isBefore(afterGeneration.plusSeconds(910));
@@ -467,17 +468,17 @@ class JwtTokenServiceTest {
             // Given
             String userId = "user123";
             String email = "user@example.com";
-            LocalDateTime beforeGeneration = LocalDateTime.now();
+            OffsetDateTime beforeGeneration = OffsetDateTime.now();
             String token = jwtService.generateAccessToken(userId, email, Set.of());
-            LocalDateTime afterGeneration = LocalDateTime.now();
+            OffsetDateTime afterGeneration = OffsetDateTime.now();
             
             // When
             Optional<LocalDateTime> expiration = jwtService.getTokenExpiration(token);
             
             // Then
             assertThat(expiration).isPresent();
-            assertThat(expiration.get()).isAfter(beforeGeneration.plusSeconds(890));
-            assertThat(expiration.get()).isBefore(afterGeneration.plusSeconds(910));
+            assertThat(expiration.get()).isAfter(beforeGeneration.plusSeconds(890).toLocalDateTime());
+            assertThat(expiration.get()).isBefore(afterGeneration.plusSeconds(910).toLocalDateTime());
         }
         
         @Test

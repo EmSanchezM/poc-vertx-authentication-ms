@@ -114,10 +114,11 @@ public class SessionRepositoryImpl extends AbstractRepository<Session, UUID> imp
         OffsetDateTime lastUsedAt = SqlUtils.getOffsetDateTime(row, "last_used_at");
         String ipAddress = SqlUtils.getString(row, "ip_address");
         String userAgent = SqlUtils.getString(row, "user_agent");
+        String countryCode = SqlUtils.getString(row, "country_code");
         Boolean isActive = SqlUtils.getBoolean(row, "is_active");
         
         return new Session(id, userId, accessTokenHash, refreshTokenHash, expiresAt,
-                          createdAt, lastUsedAt, ipAddress, userAgent, isActive);
+                          createdAt, lastUsedAt, ipAddress, userAgent, countryCode, isActive);
     }
     
     @Override

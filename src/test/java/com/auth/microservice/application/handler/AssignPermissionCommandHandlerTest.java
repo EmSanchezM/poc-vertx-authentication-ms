@@ -48,7 +48,7 @@ class AssignPermissionCommandHandlerTest {
         handler = new AssignPermissionCommandHandler(roleRepository, permissionRepository, eventPublisher);
         
         testRoleId = UUID.randomUUID();
-        testRole = new Role(testRoleId, "ADMIN", "Administrator role", java.time.LocalDateTime.now());
+        testRole = new Role(testRoleId, "ADMIN", "Administrator role", java.time.OffsetDateTime.now());
         
         testPermission1 = new Permission("USER_READ", "users", "read", "Read user data");
         testPermission2 = new Permission("USER_WRITE", "users", "write", "Write user data");

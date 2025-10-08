@@ -5,6 +5,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Set;
 import java.util.UUID;
 
@@ -33,8 +34,8 @@ class UserTest {
     void shouldCreateExistingUserFromDatabase() {
         UUID id = UUID.randomUUID();
         Email email = new Email("test@example.com");
-        LocalDateTime createdAt = LocalDateTime.now().minusDays(1);
-        LocalDateTime updatedAt = LocalDateTime.now();
+        OffsetDateTime createdAt = OffsetDateTime.now().minusDays(1);
+        OffsetDateTime updatedAt = OffsetDateTime.now();
         
         User user = new User(id, "testuser", email, "hashedPassword", "John", "Doe", 
                            true, createdAt, updatedAt);
@@ -105,7 +106,7 @@ class UserTest {
     void shouldUpdateProfile() {
         Email email = new Email("test@example.com");
         User user = new User("testuser", email, "hashedPassword", "John", "Doe");
-        LocalDateTime originalUpdatedAt = user.getUpdatedAt();
+        OffsetDateTime originalUpdatedAt = user.getUpdatedAt();
         
         // Small delay to ensure timestamp difference
         try { Thread.sleep(1); } catch (InterruptedException e) {}
@@ -186,12 +187,12 @@ class UserTest {
         Email email2 = new Email("test2@example.com");
         
         User user1 = new User(id, "user1", email1, "hash1", "John", "Doe", 
-                            true, LocalDateTime.now(), LocalDateTime.now());
+                            true, OffsetDateTime.now(), OffsetDateTime.now());
         User user2 = new User(id, "user2", email2, "hash2", "Jane", "Smith", 
-                            false, LocalDateTime.now(), LocalDateTime.now());
+                            false, OffsetDateTime.now(), OffsetDateTime.now());
         User user3 = new User(UUID.randomUUID(), "user3", email1, "hash1", "John", "Doe", 
-                            true, LocalDateTime.now(), LocalDateTime.now());
-        
+                            true, OffsetDateTime.now(), OffsetDateTime.now());
+
         assertEquals(user1, user2); // Same ID
         assertNotEquals(user1, user3); // Different ID
         assertEquals(user1.hashCode(), user2.hashCode());

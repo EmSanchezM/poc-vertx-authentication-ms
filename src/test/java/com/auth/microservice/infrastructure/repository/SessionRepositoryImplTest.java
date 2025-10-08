@@ -19,6 +19,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -73,10 +74,10 @@ class SessionRepositoryImplTest {
     void shouldSaveAndFindSessionById(VertxTestContext testContext) {
         // Given
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
-        Session session = new Session(userId, "access_hash", "refresh_hash", 
-                                    expiresAt, "192.168.1.1", "Mozilla/5.0");
-        
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
+        Session session = new Session(userId, "access_hash", "refresh_hash",
+                                    expiresAt, "192.168.1.1", "Mozilla/5.0", "unknown");
+
         // When & Then
         sessionRepository.save(session)
             .compose(savedSession -> {
@@ -104,11 +105,11 @@ class SessionRepositoryImplTest {
     void shouldFindSessionByAccessTokenHash(VertxTestContext testContext) {
         // Given
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         String accessTokenHash = "unique_access_hash";
-        Session session = new Session(userId, accessTokenHash, "refresh_hash", 
-                                    expiresAt, "192.168.1.1", "Mozilla/5.0");
-        
+        Session session = new Session(userId, accessTokenHash, "refresh_hash",
+                                    expiresAt, "192.168.1.1", "Mozilla/5.0", "unknown");
+
         // When & Then
         sessionRepository.save(session)
             .compose(savedSession -> sessionRepository.findByAccessTokenHash(accessTokenHash))
@@ -127,11 +128,11 @@ class SessionRepositoryImplTest {
     void shouldFindSessionByRefreshTokenHash(VertxTestContext testContext) {
         // Given
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         String refreshTokenHash = "unique_refresh_hash";
-        Session session = new Session(userId, "access_hash", refreshTokenHash, 
-                                    expiresAt, "192.168.1.1", "Mozilla/5.0");
-        
+        Session session = new Session(userId, "access_hash", refreshTokenHash,
+                                    expiresAt, "192.168.1.1", "Mozilla/5.0", "unknown");
+
         // When & Then
         sessionRepository.save(session)
             .compose(savedSession -> sessionRepository.findByRefreshTokenHash(refreshTokenHash))
@@ -150,16 +151,16 @@ class SessionRepositoryImplTest {
     void shouldFindActiveSessionsByUserId(VertxTestContext testContext) {
         // Given
         UUID userId = UUID.randomUUID();
-        LocalDateTime futureExpiry = LocalDateTime.now().plusHours(1);
-        LocalDateTime pastExpiry = LocalDateTime.now().minusHours(1);
-        
-        Session activeSession1 = new Session(userId, "access1", "refresh1", 
-                                           futureExpiry, "192.168.1.1", "Mozilla/5.0");
-        Session activeSession2 = new Session(userId, "access2", "refresh2", 
-                                           futureExpiry, "192.168.1.2", "Chrome");
-        Session expiredSession = new Session(userId, "access3", "refresh3", 
-                                           pastExpiry, "192.168.1.3", "Safari");
-        
+        OffsetDateTime futureExpiry = OffsetDateTime.now().plusHours(1);
+        OffsetDateTime pastExpiry = OffsetDateTime.now().minusHours(1);
+
+        Session activeSession1 = new Session(userId, "access1", "refresh1",
+                futureExpiry, "192.168.1.1", "Mozilla/5.0", "unknown");
+        Session activeSession2 = new Session(userId, "access2", "refresh2",
+                futureExpiry, "192.168.1.2", "Chrome", "unknown");
+        Session expiredSession = new Session(userId, "access3", "refresh3",
+                pastExpiry, "192.168.1.3", "Safari", "unknown");
+
         // When & Then
         sessionRepository.save(activeSession1)
             .compose(s1 -> sessionRepository.save(activeSession2))
@@ -180,12 +181,12 @@ class SessionRepositoryImplTest {
     void shouldFindAllSessionsByUserId(VertxTestContext testContext) {
         // Given
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
-        
-        Session session1 = new Session(userId, "access1", "refresh1", 
-                                     expiresAt, "192.168.1.1", "Mozilla/5.0");
-        Session session2 = new Session(userId, "access2", "refresh2", 
-                                     expiresAt, "192.168.1.2", "Chrome");
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
+
+        Session session1 = new Session(userId, "access1", "refresh1",
+                                     expiresAt, "192.168.1.1", "Mozilla/5.0", "unknown");
+        Session session2 = new Session(userId, "access2", "refresh2",
+                                     expiresAt, "192.168.1.2", "Chrome", "unknown");
         session2.invalidate(); // Make one inactive
         
         // When & Then
@@ -206,13 +207,13 @@ class SessionRepositoryImplTest {
     void shouldInvalidateAllUserSessions(VertxTestContext testContext) {
         // Given
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         
         Session session1 = new Session(userId, "access1", "refresh1", 
-                                     expiresAt, "192.168.1.1", "Mozilla/5.0");
+                                     expiresAt, "192.168.1.1", "Mozilla/5.0", "unknown");
         Session session2 = new Session(userId, "access2", "refresh2", 
-                                     expiresAt, "192.168.1.2", "Chrome");
-        
+                                     expiresAt, "192.168.1.2", "Chrome", "unknown");
+
         // When & Then
         sessionRepository.save(session1)
             .compose(s1 -> sessionRepository.save(session2))
@@ -231,11 +232,11 @@ class SessionRepositoryImplTest {
     void shouldInvalidateByAccessTokenHash(VertxTestContext testContext) {
         // Given
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         String accessTokenHash = "invalidate_access_hash";
-        Session session = new Session(userId, accessTokenHash, "refresh_hash", 
-                                    expiresAt, "192.168.1.1", "Mozilla/5.0");
-        
+        Session session = new Session(userId, accessTokenHash, "refresh_hash",
+                                    expiresAt, "192.168.1.1", "Mozilla/5.0", "unknown");
+
         // When & Then
         sessionRepository.save(session)
             .compose(savedSession -> sessionRepository.invalidateByAccessTokenHash(accessTokenHash))
@@ -253,11 +254,11 @@ class SessionRepositoryImplTest {
     void shouldInvalidateByRefreshTokenHash(VertxTestContext testContext) {
         // Given
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         String refreshTokenHash = "invalidate_refresh_hash";
-        Session session = new Session(userId, "access_hash", refreshTokenHash, 
-                                    expiresAt, "192.168.1.1", "Mozilla/5.0");
-        
+        Session session = new Session(userId, "access_hash", refreshTokenHash,
+                                    expiresAt, "192.168.1.1", "Mozilla/5.0", "unknown");
+
         // When & Then
         sessionRepository.save(session)
             .compose(savedSession -> sessionRepository.invalidateByRefreshTokenHash(refreshTokenHash))
@@ -275,16 +276,16 @@ class SessionRepositoryImplTest {
     void shouldCountActiveSessionsByUserId(VertxTestContext testContext) {
         // Given
         UUID userId = UUID.randomUUID();
-        LocalDateTime futureExpiry = LocalDateTime.now().plusHours(1);
-        LocalDateTime pastExpiry = LocalDateTime.now().minusHours(1);
-        
-        Session activeSession1 = new Session(userId, "access1", "refresh1", 
-                                           futureExpiry, "192.168.1.1", "Mozilla/5.0");
-        Session activeSession2 = new Session(userId, "access2", "refresh2", 
-                                           futureExpiry, "192.168.1.2", "Chrome");
-        Session expiredSession = new Session(userId, "access3", "refresh3", 
-                                           pastExpiry, "192.168.1.3", "Safari");
-        
+        OffsetDateTime futureExpiry = OffsetDateTime.now().plusHours(1);
+        OffsetDateTime pastExpiry = OffsetDateTime.now().minusHours(1);
+
+        Session activeSession1 = new Session(userId, "access1", "refresh1",
+                futureExpiry, "192.168.1.1", "Mozilla/5.0", "unknown");
+        Session activeSession2 = new Session(userId, "access2", "refresh2",
+                futureExpiry, "192.168.1.2", "Chrome", "unknown");
+        Session expiredSession = new Session(userId, "access3", "refresh3",
+                pastExpiry, "192.168.1.3", "Safari", "unknown");
+
         // When & Then
         sessionRepository.save(activeSession1)
             .compose(s1 -> sessionRepository.save(activeSession2))
@@ -303,15 +304,15 @@ class SessionRepositoryImplTest {
     void shouldFindSessionsExpiringBefore(VertxTestContext testContext) {
         // Given
         UUID userId = UUID.randomUUID();
-        LocalDateTime soonExpiry = LocalDateTime.now().plusMinutes(30);
-        LocalDateTime laterExpiry = LocalDateTime.now().plusHours(2);
-        LocalDateTime checkTime = LocalDateTime.now().plusHours(1);
+        OffsetDateTime soonExpiry = OffsetDateTime.now().plusMinutes(30);
+        OffsetDateTime laterExpiry = OffsetDateTime.now().plusHours(2);
+        OffsetDateTime checkTime = OffsetDateTime.now().plusHours(1);
         
         Session expiringSoon = new Session(userId, "access1", "refresh1", 
-                                         soonExpiry, "192.168.1.1", "Mozilla/5.0");
+                                         soonExpiry, "192.168.1.1", "Mozilla/5.0", null);
         Session expiringLater = new Session(userId, "access2", "refresh2", 
-                                          laterExpiry, "192.168.1.2", "Chrome");
-        
+                                          laterExpiry, "192.168.1.2", "Chrome", null);
+
         // When & Then
         sessionRepository.save(expiringSoon)
             .compose(s1 -> sessionRepository.save(expiringLater))
@@ -330,14 +331,14 @@ class SessionRepositoryImplTest {
     void shouldUpdateSession(VertxTestContext testContext) {
         // Given
         UUID userId = UUID.randomUUID();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(1);
         Session session = new Session(userId, "old_access", "old_refresh", 
-                                    expiresAt, "192.168.1.1", "Mozilla/5.0");
+                                    expiresAt, "192.168.1.1", "Mozilla/5.0", "unknown");
         
         // When & Then
         sessionRepository.save(session)
             .compose(savedSession -> {
-                LocalDateTime newExpiresAt = LocalDateTime.now().plusHours(2);
+                OffsetDateTime newExpiresAt = OffsetDateTime.now().plusHours(2);
                 savedSession.updateTokens("new_access", "new_refresh", newExpiresAt);
                 return sessionRepository.update(savedSession);
             })

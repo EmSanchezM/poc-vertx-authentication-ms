@@ -33,6 +33,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -420,7 +421,7 @@ class AdminControllerTest {
         when(role.getId()).thenReturn(id);
         when(role.getName()).thenReturn(name);
         when(role.getDescription()).thenReturn(description);
-        when(role.getCreatedAt()).thenReturn(LocalDateTime.now());
+        when(role.getCreatedAt()).thenReturn(OffsetDateTime.now());
         when(role.getPermissions()).thenReturn(Set.of());
         return role;
     }
@@ -434,8 +435,8 @@ class AdminControllerTest {
         when(user.isActive()).thenReturn(isActive);
         when(user.getFirstName()).thenReturn("Test");
         when(user.getLastName()).thenReturn("User");
-        when(user.getCreatedAt()).thenReturn(LocalDateTime.now());
-        when(user.getUpdatedAt()).thenReturn(LocalDateTime.now());
+        when(user.getCreatedAt()).thenReturn(OffsetDateTime.now());
+        when(user.getUpdatedAt()).thenReturn(OffsetDateTime.now());
         when(user.getRoles()).thenReturn(Set.of());
         return user;
     }

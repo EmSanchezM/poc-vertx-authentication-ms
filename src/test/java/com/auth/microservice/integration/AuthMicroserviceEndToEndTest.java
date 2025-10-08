@@ -1,8 +1,6 @@
 package com.auth.microservice.integration;
 
 import com.auth.microservice.infrastructure.config.ApplicationBootstrap;
-import com.auth.microservice.infrastructure.config.ApplicationProperties;
-import com.auth.microservice.infrastructure.config.ConfigurationFactory;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;

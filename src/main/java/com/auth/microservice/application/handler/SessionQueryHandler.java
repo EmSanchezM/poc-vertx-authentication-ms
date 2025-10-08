@@ -3,10 +3,9 @@ package com.auth.microservice.application.handler;
 import com.auth.microservice.domain.model.Session;
 import com.auth.microservice.domain.port.SessionRepository;
 import com.auth.microservice.infrastructure.adapter.cache.RedisAuthCacheService;
-import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -98,7 +97,7 @@ public abstract class SessionQueryHandler {
         
         // Check for sessions from multiple IPs in short time frame
         long recentSessions = sessions.stream()
-            .filter(session -> session.getCreatedAt().isAfter(LocalDateTime.now().minusHours(1)))
+            .filter(session -> session.getCreatedAt().isAfter(OffsetDateTime.now().minusHours(1)))
             .count();
         
         if (recentSessions > 3) {
