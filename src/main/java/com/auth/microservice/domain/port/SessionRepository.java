@@ -2,7 +2,7 @@ package com.auth.microservice.domain.port;
 
 import com.auth.microservice.domain.model.Session;
 import io.vertx.core.Future;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -72,7 +72,7 @@ public interface SessionRepository extends Repository<Session, UUID> {
      * @param expirationTime Time threshold
      * @return Future containing list of sessions expiring soon
      */
-    Future<List<Session>> findSessionsExpiringBefore(LocalDateTime expirationTime);
+    Future<List<Session>> findSessionsExpiringBefore(OffsetDateTime expirationTime);
     
     /**
      * Count active sessions for a user
@@ -98,5 +98,5 @@ public interface SessionRepository extends Repository<Session, UUID> {
      * @param since Date to count from
      * @return Future containing count of sessions created since the date
      */
-    Future<Long> countSessionsCreatedSince(LocalDateTime since);
+    Future<Long> countSessionsCreatedSince(OffsetDateTime since);
 }

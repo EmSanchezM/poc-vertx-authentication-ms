@@ -108,12 +108,14 @@ public abstract class AbstractRepository<T, ID> implements Repository<T, ID> {
     
     @Override
     public Future<T> save(T entity) {
+        logger.debug("Attempting to save entity: {}", entity.getClass().getSimpleName());
         return pool.preparedQuery(getInsertSql())
             .execute(createInsertTuple(entity))
             .map(rows -> {
                 if (rows.size() == 0) {
                     throw new RuntimeException("Insert operation did not return any rows");
                 }
+                logger.debug("Successfully saved entity: {}", entity.getClass().getSimpleName());
                 return mapRowToEntity(rows.iterator().next());
             })
             .onFailure(error -> logger.error("Failed to save entity: {}", entity, error));

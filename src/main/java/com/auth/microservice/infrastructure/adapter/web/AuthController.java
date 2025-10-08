@@ -17,6 +17,7 @@ import com.auth.microservice.infrastructure.adapter.web.middleware.SecurityLoggi
 import com.auth.microservice.infrastructure.adapter.web.response.ResponseUtil;
 import com.auth.microservice.infrastructure.adapter.web.util.RequestUtil;
 import com.auth.microservice.infrastructure.adapter.web.validation.RequestValidator;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -109,6 +110,7 @@ public class AuthController {
         // Execute authentication through command bus
         commandBus.<AuthenticationResult>send(command)
             .onSuccess(result -> {
+                logger.info(result);
                 if (result.isSuccess()) {
                     handleSuccessfulLogin(context, result);
                 } else {
@@ -225,11 +227,17 @@ public class AuthController {
         RefreshTokenCommand command = new RefreshTokenCommand(refreshToken, clientIp, userAgent);
         
         // Execute token refresh through command bus
-        commandBus.<AuthenticationResult>send(command)
-            .onSuccess(result -> {
-                if (result.isSuccess()) {
+        Future<AuthenticationResult> future = commandBus.send(command);
+        future.onSuccess(result -> {
+                logger.debug("Received result from command bus: {}", result);
+                logger.debug("Result type: {}", result.getClass().getName());
+                logger.debug("Result success: {}", result.isSuccess());
+                
+                if (result.isSuccess() && result.getTokenPair() != null) {
+                    logger.debug("Token pair is not null, proceeding with success handler");
                     handleSuccessfulTokenRefresh(context, result.getTokenPair());
                 } else {
+                    logger.debug("Token refresh failed or token pair is null: {}", result.getMessage());
                     handleFailedTokenRefresh(context, result.getMessage());
                 }
             })

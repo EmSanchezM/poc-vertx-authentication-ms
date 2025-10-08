@@ -7,7 +7,7 @@ import io.vertx.sqlclient.Pool;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.Tuple;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,8 +22,8 @@ public class SessionRepositoryImpl extends AbstractRepository<Session, UUID> imp
     
     private static final String INSERT_SQL = """
         INSERT INTO sessions (id, user_id, access_token_hash, refresh_token_hash, expires_at, 
-                             created_at, last_used_at, ip_address, user_agent, is_active)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                             created_at, last_used_at, ip_address, user_agent, country_code, is_active)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *
         """;
     
@@ -109,9 +109,9 @@ public class SessionRepositoryImpl extends AbstractRepository<Session, UUID> imp
         UUID userId = SqlUtils.getUUID(row, "user_id");
         String accessTokenHash = SqlUtils.getString(row, "access_token_hash");
         String refreshTokenHash = SqlUtils.getString(row, "refresh_token_hash");
-        LocalDateTime expiresAt = SqlUtils.getLocalDateTime(row, "expires_at");
-        LocalDateTime createdAt = SqlUtils.getLocalDateTime(row, "created_at");
-        LocalDateTime lastUsedAt = SqlUtils.getLocalDateTime(row, "last_used_at");
+        OffsetDateTime expiresAt = SqlUtils.getOffsetDateTime(row, "expires_at");
+        OffsetDateTime createdAt = SqlUtils.getOffsetDateTime(row, "created_at");
+        OffsetDateTime lastUsedAt = SqlUtils.getOffsetDateTime(row, "last_used_at");
         String ipAddress = SqlUtils.getString(row, "ip_address");
         String userAgent = SqlUtils.getString(row, "user_agent");
         Boolean isActive = SqlUtils.getBoolean(row, "is_active");
@@ -251,7 +251,7 @@ public class SessionRepositoryImpl extends AbstractRepository<Session, UUID> imp
     }
     
     @Override
-    public Future<List<Session>> findSessionsExpiringBefore(LocalDateTime expirationTime) {
+    public Future<List<Session>> findSessionsExpiringBefore(OffsetDateTime expirationTime) {
         return executeQuery(FIND_SESSIONS_EXPIRING_BEFORE_SQL, Tuple.of(expirationTime))
             .map(this::mapRowsToEntities)
             .onFailure(error -> logger.error("Failed to find sessions expiring before: {}", expirationTime, error));
@@ -294,7 +294,7 @@ public class SessionRepositoryImpl extends AbstractRepository<Session, UUID> imp
     }
     
     @Override
-    public Future<Long> countSessionsCreatedSince(LocalDateTime since) {
+    public Future<Long> countSessionsCreatedSince(OffsetDateTime since) {
         String sql = "SELECT COUNT(*) FROM sessions WHERE created_at >= $1";
         return executeQuery(sql, Tuple.of(since))
             .map(rows -> {

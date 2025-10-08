@@ -1,6 +1,7 @@
 package com.auth.microservice.infrastructure.adapter.web.middleware;
 
 import com.auth.microservice.domain.service.GeoLocationService;
+import com.auth.microservice.infrastructure.adapter.web.util.RequestUtil;
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
@@ -25,7 +26,7 @@ public class SecurityLoggingMiddleware implements Handler<RoutingContext> {
     
     @Override
     public void handle(RoutingContext context) {
-        String clientIp = getClientIp(context);
+        String clientIp = RequestUtil.getClientIp(context);
         
         // Obtener información de geolocalización de forma asíncrona
         geoLocationService.getCountryByIp(clientIp)
@@ -96,9 +97,9 @@ public class SecurityLoggingMiddleware implements Handler<RoutingContext> {
     
     private String determineSecurityEventType(String method, String path) {
         if ("POST".equals(method)) {
-            if (path.contains("/api/v1/auth/login") || path.contains("/auth/login")) return "LOGIN_ATTEMPT";
-            if (path.contains("/api/v1/auth/register") || path.contains("/auth/register")) return "REGISTRATION_ATTEMPT";
-            if (path.contains("/api/v1/auth/refresh") || path.contains("/auth/refresh")) return "TOKEN_REFRESH";
+            if (path.contains("/api/v1/auth/login")) return "LOGIN_ATTEMPT";
+            if (path.contains("/api/v1/auth/register")) return "REGISTRATION_ATTEMPT";
+            if (path.contains("/api/v1/auth/refresh")) return "TOKEN_REFRESH";
             if (path.contains("/admin/")) return "ADMIN_ACTION";
         }
         
@@ -118,21 +119,6 @@ public class SecurityLoggingMiddleware implements Handler<RoutingContext> {
         }
         
         return null; // No es un evento de seguridad relevante
-    }
-    
-    private String getClientIp(RoutingContext context) {
-        // Verificar headers de proxy primero
-        String xForwardedFor = context.request().getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-            return xForwardedFor.split(",")[0].trim();
-        }
-        
-        String xRealIp = context.request().getHeader("X-Real-IP");
-        if (xRealIp != null && !xRealIp.isEmpty()) {
-            return xRealIp;
-        }
-        
-        return context.request().remoteAddress().host();
     }
     
     /**

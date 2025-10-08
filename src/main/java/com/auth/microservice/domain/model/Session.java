@@ -1,6 +1,6 @@
 package com.auth.microservice.domain.model;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -12,36 +12,38 @@ public class Session {
     private UUID userId;
     private String accessTokenHash;
     private String refreshTokenHash;
-    private LocalDateTime expiresAt;
-    private LocalDateTime createdAt;
-    private LocalDateTime lastUsedAt;
+    private OffsetDateTime expiresAt;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime lastUsedAt;
     private String ipAddress;
     private String userAgent;
+    private String countryCode;
     private boolean isActive;
     
     // Constructor for new sessions
     public Session(UUID userId, String accessTokenHash, String refreshTokenHash, 
-                   LocalDateTime expiresAt, String ipAddress, String userAgent) {
+                   OffsetDateTime expiresAt, String ipAddress, String userAgent, String countryCode) {
         this.id = UUID.randomUUID();
         this.userId = Objects.requireNonNull(userId, "User ID cannot be null");
         this.accessTokenHash = validateTokenHash(accessTokenHash, "Access token hash");
         this.refreshTokenHash = validateTokenHash(refreshTokenHash, "Refresh token hash");
         this.expiresAt = Objects.requireNonNull(expiresAt, "Expiration time cannot be null");
-        this.createdAt = LocalDateTime.now();
-        this.lastUsedAt = LocalDateTime.now();
+        this.createdAt = OffsetDateTime.now();
+        this.lastUsedAt = OffsetDateTime.now();
         this.ipAddress = validateIpAddress(ipAddress);
         this.userAgent = userAgent != null ? userAgent.trim() : "";
+        this.countryCode = countryCode !==null ? countryCode : "";
         this.isActive = true;
         
-        if (expiresAt.isBefore(LocalDateTime.now())) {
+        if (expiresAt.isBefore(OffsetDateTime.now())) {
             throw new IllegalArgumentException("Session cannot be created with past expiration time");
         }
     }
     
     // Constructor for existing sessions (from database)
     public Session(UUID id, UUID userId, String accessTokenHash, String refreshTokenHash,
-                   LocalDateTime expiresAt, LocalDateTime createdAt, LocalDateTime lastUsedAt,
-                   String ipAddress, String userAgent, boolean isActive) {
+                   OffsetDateTime expiresAt, OffsetDateTime createdAt, OffsetDateTime lastUsedAt,
+                   String ipAddress, String userAgent, String countryCode, boolean isActive) {
         this.id = Objects.requireNonNull(id, "Session ID cannot be null");
         this.userId = Objects.requireNonNull(userId, "User ID cannot be null");
         this.accessTokenHash = validateTokenHash(accessTokenHash, "Access token hash");
@@ -51,6 +53,7 @@ public class Session {
         this.lastUsedAt = Objects.requireNonNull(lastUsedAt, "Last used at cannot be null");
         this.ipAddress = validateIpAddress(ipAddress);
         this.userAgent = userAgent != null ? userAgent.trim() : "";
+        this.countryCode = countryCode != null ? countryCode : "";
         this.isActive = isActive;
     }
     
@@ -78,7 +81,7 @@ public class Session {
     }
     
     public void updateLastUsed() {
-        this.lastUsedAt = LocalDateTime.now();
+        this.lastUsedAt = OffsetDateTime.now();
     }
     
     public void invalidate() {
@@ -90,20 +93,20 @@ public class Session {
     }
     
     public boolean isExpired() {
-        return LocalDateTime.now().isAfter(expiresAt);
+        return OffsetDateTime.now().isAfter(expiresAt);
     }
     
     public boolean isValid() {
         return isActive && !isExpired();
     }
     
-    public void updateTokens(String newAccessTokenHash, String newRefreshTokenHash, LocalDateTime newExpiresAt) {
+    public void updateTokens(String newAccessTokenHash, String newRefreshTokenHash, OffsetDateTime newExpiresAt) {
         this.accessTokenHash = validateTokenHash(newAccessTokenHash, "New access token hash");
         this.refreshTokenHash = validateTokenHash(newRefreshTokenHash, "New refresh token hash");
         this.expiresAt = Objects.requireNonNull(newExpiresAt, "New expiration time cannot be null");
         updateLastUsed();
         
-        if (newExpiresAt.isBefore(LocalDateTime.now())) {
+        if (newExpiresAt.isBefore(OffsetDateTime.now())) {
             throw new IllegalArgumentException("Cannot update session with past expiration time");
         }
     }
@@ -113,11 +116,12 @@ public class Session {
     public UUID getUserId() { return userId; }
     public String getAccessTokenHash() { return accessTokenHash; }
     public String getRefreshTokenHash() { return refreshTokenHash; }
-    public LocalDateTime getExpiresAt() { return expiresAt; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getLastUsedAt() { return lastUsedAt; }
+    public OffsetDateTime getExpiresAt() { return expiresAt; }
+    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public OffsetDateTime getLastUsedAt() { return lastUsedAt; }
     public String getIpAddress() { return ipAddress; }
     public String getUserAgent() { return userAgent; }
+    public String getCountryCode() { return countryCode; }
     public boolean isActive() { return isActive; }
     
     @Override

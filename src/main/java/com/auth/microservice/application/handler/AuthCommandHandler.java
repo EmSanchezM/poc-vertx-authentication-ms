@@ -48,10 +48,11 @@ public class AuthCommandHandler implements CommandHandler<AuthenticateCommand, A
      */
     public Future<AuthenticationResult> handle(AuthenticateCommand command) {
         String identifierType = command.isEmail() ? "email" : "username";
-        logger.info("Processing authentication with {}", identifierType);
         
         try {
-            return findUserByIdentifier(command)
+            Future<Optional<User>> userFuture = findUserByIdentifier(command);
+            logger.info("findUserByIdentifier called successfully");
+            return userFuture
                 .compose(userOpt -> {
                     if (userOpt.isEmpty()) {
                         logger.warn("Authentication failed: User not found");
@@ -70,10 +71,14 @@ public class AuthCommandHandler implements CommandHandler<AuthenticateCommand, A
                         return Future.succeededFuture(AuthenticationResult.failure("Invalid credentials"));
                     }
                     
+                    logger.info("Password verification successful, proceeding to generate tokens");
+                    
                     // Generate tokens
                     Set<String> permissions = user.getAllPermissions().stream()
                         .map(permission -> permission.getName())
                         .collect(Collectors.toSet());
+                    
+                    logger.info("Generating token pair for user: {} with permissions: {}", user.getId(), permissions);
                     
                     JWTService.TokenPair tokenPair = jwtService.generateTokenPair(
                         user.getId().toString(),
@@ -81,9 +86,14 @@ public class AuthCommandHandler implements CommandHandler<AuthenticateCommand, A
                         permissions
                     );
                     
+                    logger.info("Token pair generated successfully");
+                    
                     // Create and save session
                     String accessTokenHash = TokenHashUtil.hashToken(tokenPair.accessToken());
                     String refreshTokenHash = TokenHashUtil.hashToken(tokenPair.refreshToken());
+                    
+                    logger.info("Creating session for user: {} with refresh token hash: {}", 
+                        user.getId(), refreshTokenHash.substring(0, 10) + "...");
                     
                     Session session = new Session(
                         user.getId(),
@@ -91,13 +101,20 @@ public class AuthCommandHandler implements CommandHandler<AuthenticateCommand, A
                         refreshTokenHash,
                         tokenPair.refreshTokenExpiration(),
                         command.getIpAddress(),
-                        command.getUserAgent()
+                        command.getUserAgent(),
                     );
+                    
+                    logger.info("About to save session for user: {}", user.getId());
                     
                     return sessionRepository.save(session)
                         .compose(savedSession -> {
                             logger.info("Authentication successful for user: {}", user.getId());
+                            logger.debug("Session saved with refresh token hash: {}", refreshTokenHash.substring(0, 10) + "...");
                             return Future.succeededFuture(AuthenticationResult.success(user, tokenPair));
+                        })
+                        .recover(sessionError -> {
+                            logger.error("Failed to save session for user: {}", user.getId(), sessionError);
+                            return Future.failedFuture(new AuthenticationException("Failed to create session", sessionError));
                         });
                 })
                 .recover(throwable -> {

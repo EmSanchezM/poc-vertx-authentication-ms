@@ -1,6 +1,7 @@
 package com.auth.microservice.domain.service;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -96,8 +97,8 @@ public interface JWTService {
     record TokenPair(
         String accessToken,
         String refreshToken,
-        LocalDateTime accessTokenExpiration,
-        LocalDateTime refreshTokenExpiration
+        OffsetDateTime accessTokenExpiration,
+        OffsetDateTime refreshTokenExpiration
     ) {}
     
     /**

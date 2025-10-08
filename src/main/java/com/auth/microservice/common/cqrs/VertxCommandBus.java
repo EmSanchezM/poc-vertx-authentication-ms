@@ -30,20 +30,28 @@ public class VertxCommandBus implements CommandBus {
     @SuppressWarnings("unchecked")
     public <R> Future<R> send(Command command) {
         logger.debug("Executing command: {}", command);
+        logger.info("Command class: {}", command.getClass().getName());
+        logger.info("Available handlers: {}", handlers.keySet());
         
-        CommandHandler<Command, R> handler = (CommandHandler<Command, R>) handlers.get(command.getClass());
+        CommandHandler<?, ?> rawHandler = handlers.get(command.getClass());
         
-        if (handler == null) {
+        if (rawHandler == null) {
             logger.error("No handler found for command type: {}", command.getClass().getSimpleName());
+            logger.error("Available handlers: {}", handlers.keySet());
             return Future.failedFuture(new CommandNotFoundException(command.getClass()));
         }
+        
+        logger.info("Found handler: {}", rawHandler.getClass().getName());
+        
+        CommandHandler<Command, R> handler = (CommandHandler<Command, R>) rawHandler;
         
         return vertx.executeBlocking(promise -> {
             try {
                 handler.handle(command)
                     .onSuccess(result -> {
                         logger.debug("Command executed successfully: {}", command.getCommandId());
-                        promise.complete(result);
+                        logger.debug("Result type: {}", result != null ? result.getClass().getName() : "null");
+                        promise.complete((R) result);
                     })
                     .onFailure(error -> {
                         logger.error("Command execution failed: {}", command.getCommandId(), error);
