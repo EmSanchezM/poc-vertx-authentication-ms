@@ -1,6 +1,7 @@
 package com.auth.microservice.infrastructure.repository;
 
 import com.auth.microservice.domain.model.Email;
+import com.auth.microservice.domain.model.Role;
 import com.auth.microservice.domain.model.User;
 import com.auth.microservice.domain.port.Pagination;
 import com.auth.microservice.infrastructure.adapter.repository.TransactionManager;
@@ -278,6 +279,138 @@ class UserRepositoryImplTest {
             .onFailure(testContext::failNow);
     }
     
+    @Test
+    void shouldSaveUserWithRoles(VertxTestContext testContext) {
+        // Given
+        User user = new User("roleuser", new Email("roleuser@example.com"), 
+                           "hashedpassword", "Role", "User");
+        
+        // Create and insert test roles first
+        createTestRoles()
+            .compose(roles -> {
+                // Add roles to user
+                for (Role role : roles) {
+                    user.addRole(role);
+                }
+                
+                // When
+                return userRepository.saveWithRoles(user);
+            })
+            .compose(savedUser -> {
+                testContext.verify(() -> {
+                    assertNotNull(savedUser.getId());
+                    assertEquals("roleuser", savedUser.getUsername());
+                    assertEquals(2, savedUser.getRoles().size());
+                });
+                
+                // Verify roles were persisted by querying with roles
+                return userRepository.findByIdWithRoles(savedUser.getId());
+            })
+            .onSuccess(foundUser -> {
+                testContext.verify(() -> {
+                    assertTrue(foundUser.isPresent());
+                    assertEquals(2, foundUser.get().getRoles().size());
+                });
+                testContext.completeNow();
+            })
+            .onFailure(testContext::failNow);
+    }
+    
+    @Test
+    void shouldSaveUserWithoutRoles(VertxTestContext testContext) {
+        // Given
+        User user = new User("noroleuser", new Email("noroleuser@example.com"), 
+                           "hashedpassword", "NoRole", "User");
+        
+        // When & Then
+        userRepository.saveWithRoles(user)
+            .onSuccess(savedUser -> {
+                testContext.verify(() -> {
+                    assertNotNull(savedUser.getId());
+                    assertEquals("noroleuser", savedUser.getUsername());
+                    assertEquals(0, savedUser.getRoles().size());
+                });
+                testContext.completeNow();
+            })
+            .onFailure(testContext::failNow);
+    }
+    
+    @Test
+    void shouldRollbackOnRoleInsertFailure(VertxTestContext testContext) {
+        // Given
+        User user = new User("failuser", new Email("failuser@example.com"), 
+                           "hashedpassword", "Fail", "User");
+        
+        // Add a role with non-existent ID to cause foreign key violation
+        Role invalidRole = new Role(UUID.randomUUID(), "INVALID_ROLE", "Invalid role", 
+                                  java.time.OffsetDateTime.now());
+        user.addRole(invalidRole);
+        
+        // When & Then
+        userRepository.saveWithRoles(user)
+            .onSuccess(result -> testContext.failNow("Expected operation to fail"))
+            .onFailure(error -> {
+                testContext.verify(() -> {
+                    assertNotNull(error);
+                });
+                
+                // Verify user was not created due to rollback
+                userRepository.findByUsername("failuser")
+                    .onSuccess(foundUser -> {
+                        testContext.verify(() -> {
+                            assertFalse(foundUser.isPresent());
+                        });
+                        testContext.completeNow();
+                    })
+                    .onFailure(testContext::failNow);
+            });
+    }
+    
+    @Test
+    void shouldHandleDatabaseConnectionError(VertxTestContext testContext) {
+        // Given
+        User user = new User("connuser", new Email("connuser@example.com"), 
+                           "hashedpassword", "Conn", "User");
+        
+        // Close the pool to simulate connection error
+        pool.close()
+            .compose(v -> {
+                // When
+                return userRepository.saveWithRoles(user);
+            })
+            .onSuccess(result -> testContext.failNow("Expected operation to fail"))
+            .onFailure(error -> {
+                testContext.verify(() -> {
+                    assertNotNull(error);
+                });
+                testContext.completeNow();
+            });
+    }
+    
+    private io.vertx.core.Future<java.util.List<Role>> createTestRoles() {
+        Role adminRole = new Role("ADMIN", "Administrator role");
+        Role userRole = new Role("USER", "Regular user role");
+        
+        String insertRole1 = """
+            INSERT INTO roles (id, name, description, created_at) 
+            VALUES ($1, $2, $3, $4)
+            """;
+        
+        return pool.preparedQuery(insertRole1)
+            .execute(io.vertx.sqlclient.Tuple.of(
+                adminRole.getId(), 
+                adminRole.getName(), 
+                adminRole.getDescription(), 
+                adminRole.getCreatedAt()))
+            .compose(v -> pool.preparedQuery(insertRole1)
+                .execute(io.vertx.sqlclient.Tuple.of(
+                    userRole.getId(), 
+                    userRole.getName(), 
+                    userRole.getDescription(), 
+                    userRole.getCreatedAt())))
+            .map(v -> java.util.List.of(adminRole, userRole));
+    }
+    
     private io.vertx.core.Future<Void> createTables() {
         String createUsersTable = """
             CREATE TABLE IF NOT EXISTS users (
@@ -306,6 +439,8 @@ class UserRepositoryImplTest {
             CREATE TABLE IF NOT EXISTS user_roles (
                 user_id UUID REFERENCES users(id) ON DELETE CASCADE,
                 role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
+                assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                assigned_by UUID REFERENCES users(id),
                 PRIMARY KEY (user_id, role_id)
             )
             """;

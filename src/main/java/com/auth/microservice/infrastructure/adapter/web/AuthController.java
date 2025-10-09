@@ -228,10 +228,6 @@ public class AuthController {
         // Execute token refresh through command bus
         Future<AuthenticationResult> future = commandBus.send(command);
         future.onSuccess(result -> {
-                logger.debug("Received result from command bus: {}", result);
-                logger.debug("Result type: {}", result.getClass().getName());
-                logger.debug("Result success: {}", result.isSuccess());
-                
                 if (result.isSuccess() && result.getTokenPair() != null) {
                     logger.debug("Token pair is not null, proceeding with success handler");
                     handleSuccessfulTokenRefresh(context, result.getTokenPair());

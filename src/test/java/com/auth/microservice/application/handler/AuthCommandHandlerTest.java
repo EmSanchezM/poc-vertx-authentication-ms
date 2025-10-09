@@ -11,6 +11,7 @@ import com.auth.microservice.domain.port.UserRepository;
 import com.auth.microservice.domain.port.SessionRepository;
 import com.auth.microservice.domain.service.JWTService;
 import com.auth.microservice.domain.service.PasswordService;
+import com.auth.microservice.domain.service.GeoLocationService;
 import io.vertx.core.Future;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
@@ -45,13 +46,16 @@ class AuthCommandHandlerTest {
     @Mock
     private JWTService jwtService;
 
+    @Mock
+    private GeoLocationService geoLocationService;
+
     private AuthCommandHandler handler;
     private User testUser;
     private Email testEmail;
 
     @BeforeEach
     void setUp() {
-        handler = new AuthCommandHandler(userRepository, sessionRepository, passwordService, jwtService);
+        handler = new AuthCommandHandler(userRepository, sessionRepository, passwordService, jwtService, geoLocationService);
         
         testEmail = new Email("test@example.com");
         testUser = new User(
@@ -96,6 +100,10 @@ class AuthCommandHandlerTest {
             .thenReturn(true);
         when(jwtService.generateTokenPair(anyString(), anyString(), any(Set.class)))
             .thenReturn(tokenPair);
+        when(geoLocationService.getCountryByIp(anyString()))
+            .thenReturn(Future.succeededFuture("US"));
+        when(sessionRepository.save(any()))
+            .thenReturn(Future.succeededFuture(null));
 
         // When
         Future<AuthenticationResult> result = handler.handle(command);

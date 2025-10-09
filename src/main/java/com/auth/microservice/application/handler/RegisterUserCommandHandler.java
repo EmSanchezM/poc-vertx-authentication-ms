@@ -84,7 +84,6 @@ public class RegisterUserCommandHandler implements CommandHandler<RegisterUserCo
                         return Future.succeededFuture(RegistrationResult.failure(
                             "Username processing failed: " + throwable.getMessage()));
                     }
-                    logger.error("Registration error for email: {}", command.getEmail(), throwable);
                     return Future.failedFuture(new UserAlreadyExistsException("Registration failed", throwable));
                 });
                 
@@ -99,14 +98,8 @@ public class RegisterUserCommandHandler implements CommandHandler<RegisterUserCo
      */
     private Future<RegistrationResult> handleUsernameProcessing(RegisterUserCommand command) {
         if (command.hasExplicitUsername()) {
-            // Handle explicit username validation
-            logger.info("Processing registration with explicit username: {} for email: {}", 
-                command.getUsername(), command.getEmail());
             return handleExplicitUsername(command);
         } else {
-            // Handle automatic username generation
-            logger.info("Processing registration with automatic username generation for email: {} (firstName: {}, lastName: {})", 
-                command.getEmail(), command.getFirstName(), command.getLastName());
             return handleAutomaticUsernameGeneration(command);
         }
     }
@@ -115,14 +108,10 @@ public class RegisterUserCommandHandler implements CommandHandler<RegisterUserCo
      * Handles registration with explicit username provided by user.
      */
     private Future<RegistrationResult> handleExplicitUsername(RegisterUserCommand command) {
-        logger.debug("Validating explicit username: {} for email: {}", command.getUsername(), command.getEmail());
-        
         // First validate the username format and rules
         return usernameGenerationService.validateUsername(command.getUsername())
             .compose(validationResult -> {
                 if (!validationResult.isValid()) {
-                    logger.warn("Registration failed: Invalid explicit username '{}' for email: {}. Violations: {}", 
-                        command.getUsername(), command.getEmail(), validationResult.getViolations());
                     return Future.succeededFuture(RegistrationResult.failure(
                         "Invalid username: " + validationResult.getMessage()));
                 }
@@ -131,13 +120,8 @@ public class RegisterUserCommandHandler implements CommandHandler<RegisterUserCo
                 return userRepository.existsByUsername(command.getUsername())
                     .compose(usernameExists -> {
                         if (usernameExists) {
-                            logger.warn("Registration failed: Explicit username already exists: {} for email: {}", 
-                                command.getUsername(), command.getEmail());
                             return Future.succeededFuture(RegistrationResult.failure("Username already exists"));
                         }
-                        
-                        logger.info("Explicit username validation successful: {} for email: {}", 
-                            command.getUsername(), command.getEmail());
                         // Create user with explicit username
                         return createAndSaveUser(command, command.getUsername());
                     });
@@ -153,42 +137,28 @@ public class RegisterUserCommandHandler implements CommandHandler<RegisterUserCo
     /**
      * Handles registration with automatic username generation.
      */
-    private Future<RegistrationResult> handleAutomaticUsernameGeneration(RegisterUserCommand command) {
-        logger.debug("Starting automatic username generation for email: {} (firstName: {}, lastName: {})", 
-            command.getEmail(), command.getFirstName(), command.getLastName());
-        
+    private Future<RegistrationResult> handleAutomaticUsernameGeneration(RegisterUserCommand command) {        
         long startTime = System.currentTimeMillis();
         
         return usernameGenerationService.generateUsername(command.getFirstName(), command.getLastName())
             .compose(generatedUsername -> {
                 long generationTime = System.currentTimeMillis() - startTime;
-                logger.info("Successfully generated username: {} for email: {} in {}ms", 
-                    generatedUsername, command.getEmail(), generationTime);
                 
                 // Validate the generated username (additional safety check)
                 return usernameGenerationService.validateUsername(generatedUsername)
                     .compose(validationResult -> {
                         if (!validationResult.isValid()) {
-                            logger.error("Generated username validation failed: {} for email: {}. Violations: {}", 
-                                generatedUsername, command.getEmail(), validationResult.getViolations());
                             return Future.failedFuture(new UsernameGenerationException(
                                 "Generated username failed validation: " + validationResult.getMessage()));
                         }
-                        
-                        logger.debug("Generated username validation successful: {} for email: {}", 
-                            generatedUsername, command.getEmail());
                         return createAndSaveUser(command, generatedUsername);
                     });
             })
             .recover(throwable -> {
                 long totalTime = System.currentTimeMillis() - startTime;
                 if (throwable instanceof UsernameGenerationException) {
-                    logger.error("Username generation failed for email: {} (firstName: {}, lastName: {}) after {}ms: {}", 
-                        command.getEmail(), command.getFirstName(), command.getLastName(), totalTime, throwable.getMessage());
                     return Future.failedFuture(throwable);
                 }
-                logger.error("Unexpected error during username generation for email: {} after {}ms", 
-                    command.getEmail(), totalTime, throwable);
                 return Future.failedFuture(new UsernameGenerationException(
                     "Unexpected error during username generation", throwable));
             });
@@ -199,8 +169,6 @@ public class RegisterUserCommandHandler implements CommandHandler<RegisterUserCo
      */
     private Future<RegistrationResult> createAndSaveUser(RegisterUserCommand command, String username) {
         try {
-            logger.debug("Creating user with username: {} for email: {}", username, command.getEmail());
-            
             Email email = new Email(command.getEmail());
             String hashedPassword = passwordService.hashPassword(command.getPassword());
             
@@ -214,26 +182,55 @@ public class RegisterUserCommandHandler implements CommandHandler<RegisterUserCo
             
             // Assign roles if specified
             if (!command.getRoleNames().isEmpty()) {
-                logger.debug("Assigning roles {} to user with username: {}", command.getRoleNames(), username);
+                logger.info("Starting role assignment for user '{}': {} roles to assign", 
+                    username, command.getRoleNames().size());
+                logger.debug("Roles to assign: {}", command.getRoleNames());
+                
                 return assignRolesToUser(user, command.getRoleNames())
                     .compose(userWithRoles -> {
-                        logger.debug("Saving user with roles, username: {}", username);
-                        return userRepository.save(userWithRoles);
+                        logger.debug("Roles successfully assigned to user '{}', proceeding with transactional save", username);
+                        return userRepository.saveWithRoles(userWithRoles);
                     })
                     .compose(savedUser -> {
+                        logger.info("User '{}' successfully registered with {} roles persisted to database", 
+                            username, savedUser.getRoles().size());
                         String usernameType = command.hasExplicitUsername() ? "explicit" : "generated";
-                        logger.info("User registered successfully with {} username: {} and ID: {} for email: {}", 
-                            usernameType, savedUser.getUsername(), savedUser.getId(), command.getEmail());
                         return Future.succeededFuture(RegistrationResult.success(savedUser));
+                    })
+                    .recover(throwable -> {
+                        logger.error("Failed to save user '{}' with roles: {}", username, throwable.getMessage(), throwable);
+                        if (throwable.getMessage() != null && throwable.getMessage().contains("role")) {
+                            return Future.succeededFuture(RegistrationResult.failure(
+                                "Role assignment failed: " + throwable.getMessage()));
+                        } else if (throwable.getMessage() != null && throwable.getMessage().contains("transaction")) {
+                            return Future.succeededFuture(RegistrationResult.failure(
+                                "Database transaction failed during user registration"));
+                        } else if (throwable.getMessage() != null && throwable.getMessage().contains("constraint")) {
+                            return Future.succeededFuture(RegistrationResult.failure(
+                                "Database constraint violation during registration"));
+                        }
+                        return Future.succeededFuture(RegistrationResult.failure(
+                            "User registration failed: " + throwable.getMessage()));
                     });
             } else {
-                logger.debug("Saving user without roles, username: {}", username);
-                return userRepository.save(user)
+                logger.debug("No roles specified for user '{}', proceeding with standard save", username);
+                return userRepository.saveWithRoles(user)
                     .compose(savedUser -> {
+                        logger.info("User '{}' successfully registered without roles", username);
                         String usernameType = command.hasExplicitUsername() ? "explicit" : "generated";
-                        logger.info("User registered successfully with {} username: {} and ID: {} for email: {}", 
-                            usernameType, savedUser.getUsername(), savedUser.getId(), command.getEmail());
                         return Future.succeededFuture(RegistrationResult.success(savedUser));
+                    })
+                    .recover(throwable -> {
+                        logger.error("Failed to save user '{}': {}", username, throwable.getMessage(), throwable);
+                        if (throwable.getMessage() != null && throwable.getMessage().contains("transaction")) {
+                            return Future.succeededFuture(RegistrationResult.failure(
+                                "Database transaction failed during user registration"));
+                        } else if (throwable.getMessage() != null && throwable.getMessage().contains("constraint")) {
+                            return Future.succeededFuture(RegistrationResult.failure(
+                                "Database constraint violation during registration"));
+                        }
+                        return Future.succeededFuture(RegistrationResult.failure(
+                            "User registration failed: " + throwable.getMessage()));
                     });
             }
         } catch (Exception e) {
@@ -253,19 +250,43 @@ public class RegisterUserCommandHandler implements CommandHandler<RegisterUserCo
         return Future.all(roleFutures)
             .compose(compositeFuture -> {
                 Set<Role> roles = new HashSet<>();
+                Set<String> notFoundRoles = new HashSet<>();
                 
-                for (int i = 0; i < compositeFuture.size(); i++) {
-                    Optional<Role> roleOpt = compositeFuture.resultAt(i);
+                int index = 0;
+                for (String roleName : roleNames) {
+                    Optional<Role> roleOpt = compositeFuture.resultAt(index);
                     if (roleOpt.isPresent()) {
                         roles.add(roleOpt.get());
+                        logger.debug("Successfully found role '{}' for user '{}'", roleName, user.getUsername());
                     } else {
-                        String roleName = roleNames.stream().skip(i).findFirst().orElse("unknown");
-                        logger.warn("Role not found: {}", roleName);
+                        notFoundRoles.add(roleName);
+                        logger.warn("Role '{}' not found for user '{}' - role will be skipped", roleName, user.getUsername());
                     }
+                    index++;
                 }
+                
+                if (!notFoundRoles.isEmpty()) {
+                    logger.warn("User '{}' registration proceeding with {} missing roles: {}", 
+                        user.getUsername(), notFoundRoles.size(), notFoundRoles);
+                }
+                
+                if (roles.isEmpty() && !roleNames.isEmpty()) {
+                    logger.error("No valid roles found for user '{}' - all specified roles were invalid: {}", 
+                        user.getUsername(), roleNames);
+                    return Future.failedFuture(new IllegalArgumentException(
+                        "No valid roles found - all specified roles are invalid: " + roleNames));
+                }
+                
+                logger.debug("Adding {} valid roles to user '{}': {}", 
+                    roles.size(), user.getUsername(), 
+                    roles.stream().map(Role::getName).collect(Collectors.toSet()));
                 
                 roles.forEach(user::addRole);
                 return Future.succeededFuture(user);
+            })
+            .recover(throwable -> {
+                logger.error("Error during role assignment for user '{}': {}", user.getUsername(), throwable.getMessage(), throwable);
+                return Future.failedFuture(new RuntimeException("Role assignment failed: " + throwable.getMessage(), throwable));
             });
     }
 

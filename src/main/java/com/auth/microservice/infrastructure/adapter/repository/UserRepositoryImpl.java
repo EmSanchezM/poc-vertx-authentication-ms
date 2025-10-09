@@ -13,6 +13,7 @@ import io.vertx.sqlclient.Tuple;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -99,6 +100,16 @@ public class UserRepositoryImpl extends AbstractRepository<User, UUID> implement
         """;
     
     private static final String SEARCH_ACTIVE_FILTER = "AND is_active = true";
+    
+    // SQL statements for user_roles operations
+    private static final String INSERT_USER_ROLE_SQL = """
+        INSERT INTO user_roles (user_id, role_id, assigned_at, assigned_by) 
+        VALUES ($1, $2, $3, $4)
+        """;
+    
+    private static final String DELETE_USER_ROLES_SQL = """
+        DELETE FROM user_roles WHERE user_id = $1
+        """;
     
     public UserRepositoryImpl(Pool pool, TransactionManager transactionManager) {
         super(pool, transactionManager);
@@ -393,5 +404,127 @@ public class UserRepositoryImpl extends AbstractRepository<User, UUID> implement
         }
         
         return user;
+    }
+    
+    /**
+     * Save user with roles in a transactional manner
+     * @param user User entity with roles to save
+     * @return Future containing saved user with roles
+     */
+    public Future<User> saveWithRoles(User user) {
+        logger.debug("Starting transactional save for user: {} with {} roles", 
+                    user.getUsername(), user.getRoles().size());
+        
+        return transactionManager.executeInTransaction(connection -> {
+            logger.debug("Transaction started for user: {}", user.getUsername());
+            
+            // First save the user
+            return connection.preparedQuery(getInsertSql())
+                .execute(createInsertTuple(user))
+                .compose(userRows -> {
+                    if (userRows.size() == 0) {
+                        logger.error("User insert returned no rows for user: {}", user.getUsername());
+                        return Future.failedFuture(new RuntimeException("User insert operation did not return any rows"));
+                    }
+                    
+                    User savedUser = mapRowToEntity(userRows.iterator().next());
+                    logger.debug("User saved successfully: {}", savedUser.getUsername());
+                    
+                    // Then save user roles if any exist
+                    if (!user.getRoles().isEmpty()) {
+                        logger.debug("Saving {} roles for user: {}", user.getRoles().size(), savedUser.getUsername());
+                        return saveUserRoles(connection, savedUser.getId(), user.getRoles())
+                            .map(v -> {
+                                // Add roles to the saved user object
+                                for (Role role : user.getRoles()) {
+                                    savedUser.addRole(role);
+                                }
+                                logger.debug("All roles saved successfully for user: {}", savedUser.getUsername());
+                                return savedUser;
+                            });
+                    } else {
+                        logger.debug("No roles to save for user: {}", savedUser.getUsername());
+                        return Future.succeededFuture(savedUser);
+                    }
+                })
+                .onSuccess(result -> logger.debug("Transaction completed successfully for user: {}", result.getUsername()))
+                .onFailure(error -> logger.error("Transaction failed for user: {}", user.getUsername(), error));
+        });
+    }
+    
+    /**
+     * Save user roles within a transaction
+     * @param connection Database connection within transaction
+     * @param userId User ID
+     * @param roles Set of roles to assign
+     * @return Future indicating completion
+     */
+    private Future<Void> saveUserRoles(io.vertx.sqlclient.SqlConnection connection, UUID userId, Set<Role> roles) {
+        logger.debug("Inserting {} role assignments for user: {}", roles.size(), userId);
+        
+        java.util.List<Future<Void>> insertFutures = new java.util.ArrayList<>();
+        
+        for (Role role : roles) {
+            logger.debug("Inserting role assignment: user={}, role={}", userId, role.getName());
+            Future<Void> insertFuture = connection.preparedQuery(INSERT_USER_ROLE_SQL)
+                .execute(createUserRoleTuple(userId, role.getId(), null))
+                .map(rows -> {
+                    logger.debug("Role assignment inserted: user={}, role={}", userId, role.getName());
+                    return (Void) null;
+                })
+                .onFailure(error -> logger.error("Failed to insert role assignment: user={}, role={}", 
+                                                userId, role.getName(), error));
+            insertFutures.add(insertFuture);
+        }
+        
+        return Future.all(insertFutures)
+            .map(v -> {
+                logger.debug("All {} role assignments completed for user: {}", roles.size(), userId);
+                return (Void) null;
+            })
+            .onFailure(error -> logger.error("Failed to save user roles for user: {}", userId, error));
+    }
+    
+    /**
+     * Delete all roles for a user (used for updates)
+     * @param connection Database connection within transaction
+     * @param userId User ID
+     * @return Future indicating completion
+     */
+    private Future<Void> deleteUserRoles(io.vertx.sqlclient.SqlConnection connection, UUID userId) {
+        logger.debug("Deleting existing roles for user: {}", userId);
+        
+        return connection.preparedQuery(DELETE_USER_ROLES_SQL)
+            .execute(createDeleteUserRolesTuple(userId))
+            .map(rows -> {
+                logger.debug("Deleted {} existing role assignments for user: {}", rows.rowCount(), userId);
+                return (Void) null;
+            })
+            .onFailure(error -> logger.error("Failed to delete user roles for user: {}", userId, error));
+    }
+    
+    /**
+     * Create tuple for inserting user role relationship
+     * @param userId User ID
+     * @param roleId Role ID
+     * @param assignedBy User ID who assigned the role (can be null for system assignments)
+     * @return Tuple with parameters for user_roles insert
+     */
+    private Tuple createUserRoleTuple(UUID userId, UUID roleId, UUID assignedBy) {
+        return Tuple.of(
+            userId,
+            roleId,
+            OffsetDateTime.now(),
+            assignedBy
+        );
+    }
+    
+    /**
+     * Create tuple for deleting user roles
+     * @param userId User ID
+     * @return Tuple with parameters for user_roles delete
+     */
+    private Tuple createDeleteUserRolesTuple(UUID userId) {
+        return Tuple.of(userId);
     }
 }

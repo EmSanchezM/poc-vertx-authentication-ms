@@ -42,8 +42,6 @@ public class RefreshTokenCommandHandler implements CommandHandler<RefreshTokenCo
         logger.info("Processing token refresh");
         
         try {
-            logger.debug("Starting token refresh validation");
-            
             // First, validate the refresh token format
             JWTService.TokenValidationResult validation = jwtService.validateToken(command.getRefreshToken());
             
@@ -51,9 +49,6 @@ public class RefreshTokenCommandHandler implements CommandHandler<RefreshTokenCo
                 logger.warn("Token refresh failed: Invalid refresh token format");
                 return Future.succeededFuture(AuthenticationResult.failure("Invalid refresh token"));
             }
-            
-            logger.debug("Token format validation passed");
-            
             // Check if session exists and is valid
             String refreshTokenHash = TokenHashUtil.hashToken(command.getRefreshToken());
             logger.debug("Looking for session with refresh token hash: {}", refreshTokenHash.substring(0, 10) + "...");
@@ -121,7 +116,8 @@ public class RefreshTokenCommandHandler implements CommandHandler<RefreshTokenCo
                             
                             session.updateTokens(newAccessTokenHash, newRefreshTokenHash, tokenPair.refreshTokenExpiration());
                             
-                            return sessionRepository.save(session)
+                            logger.info("Updating session with ID: {} for user: {}", session.getId(), user.getId());
+                            return sessionRepository.update(session)
                                 .compose(savedSession -> {
                                     logger.info("Token refresh successful for user: {} from IP: {}", 
                                         user.getId(), command.getIpAddress());

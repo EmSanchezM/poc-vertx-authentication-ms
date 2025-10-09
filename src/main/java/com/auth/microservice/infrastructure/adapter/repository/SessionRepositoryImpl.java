@@ -143,6 +143,7 @@ public class SessionRepositoryImpl extends AbstractRepository<Session, UUID> imp
             session.getLastUsedAt(),
             session.getIpAddress(),
             session.getUserAgent(),
+            session.getCountryCode(),
             session.isActive()
         );
     }

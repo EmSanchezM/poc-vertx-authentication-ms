@@ -122,4 +122,14 @@ public interface UserRepository extends Repository<User, UUID> {
      * @return Future containing list of matching usernames
      */
     Future<List<String>> findUsernamesStartingWith(String usernamePrefix, int limit);
+    
+    /**
+     * Save user with roles in a transactional manner.
+     * This method ensures that both user data and role assignments are persisted atomically.
+     * If any part of the operation fails, the entire transaction is rolled back.
+     * 
+     * @param user User entity with roles to save
+     * @return Future containing saved user with roles
+     */
+    Future<User> saveWithRoles(User user);
 }

@@ -12,10 +12,13 @@ import com.auth.microservice.domain.port.SessionRepository;
 import com.auth.microservice.domain.port.UserRepository;
 import com.auth.microservice.domain.service.JWTService;
 import com.auth.microservice.domain.service.PasswordService;
+import com.auth.microservice.domain.service.GeoLocationService;
 import io.vertx.core.Future;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -32,15 +35,18 @@ public class AuthCommandHandler implements CommandHandler<AuthenticateCommand, A
     private final SessionRepository sessionRepository;
     private final PasswordService passwordService;
     private final JWTService jwtService;
+    private final GeoLocationService geoLocationService;
 
     public AuthCommandHandler(UserRepository userRepository, 
                              SessionRepository sessionRepository,
                              PasswordService passwordService, 
-                             JWTService jwtService) {
+                             JWTService jwtService,
+                             GeoLocationService geoLocationService) {
         this.userRepository = userRepository;
         this.sessionRepository = sessionRepository;
         this.passwordService = passwordService;
         this.jwtService = jwtService;
+        this.geoLocationService = geoLocationService;
     }
 
     /**
@@ -89,23 +95,34 @@ public class AuthCommandHandler implements CommandHandler<AuthenticateCommand, A
                     // Create and save session
                     String accessTokenHash = TokenHashUtil.hashToken(tokenPair.accessToken());
                     String refreshTokenHash = TokenHashUtil.hashToken(tokenPair.refreshToken());
-                    
-                    Session session = new Session(
-                        user.getId(),
-                        accessTokenHash,
-                        refreshTokenHash,
-                        tokenPair.refreshTokenExpiration(),
-                        command.getIpAddress(),
-                        command.getUserAgent(),
-                        "unknown"
-                    );
+                    OffsetDateTime expirationTime = tokenPair.refreshTokenExpiration();
                     
                     logger.info("About to save session for user: {}", user.getId());
                     
-                    return sessionRepository.save(session)
+                    // Get country code from IP address
+                    return geoLocationService.getCountryByIp(command.getIpAddress())
+                        .recover(throwable -> {
+                            logger.warn("Failed to get country code for IP {}: {}", command.getIpAddress(), throwable.getMessage());
+                            return Future.succeededFuture("XX"); // Default fallback
+                        })
+                        .compose(countryCode -> {
+                            // Ensure country code is valid (2 characters max)
+                            String validCountryCode = normalizeCountryCode(countryCode);
+                            
+                            Session session = new Session(
+                                user.getId(),
+                                accessTokenHash,
+                                refreshTokenHash,
+                                expirationTime,
+                                command.getIpAddress(),
+                                command.getUserAgent(),
+                                validCountryCode
+                            );
+                            
+                            return sessionRepository.save(session);
+                        })
                         .compose(savedSession -> {
                             logger.info("Authentication successful for user: {}", user.getId());
-                            logger.debug("Session saved with refresh token hash: {}", refreshTokenHash.substring(0, 10) + "...");
                             return Future.succeededFuture(AuthenticationResult.success(user, tokenPair));
                         })
                         .recover(sessionError -> {
@@ -143,6 +160,31 @@ public class AuthCommandHandler implements CommandHandler<AuthenticateCommand, A
         } else {
             return userRepository.findByUsernameWithRoles(command.getUsernameOrEmail());
         }
+    }
+
+    /**
+     * Normalizes country code to ensure it fits database constraints (2 characters max)
+     */
+    private String normalizeCountryCode(String countryCode) {
+        if (countryCode == null || countryCode.trim().isEmpty()) {
+            return "XX"; // Unknown
+        }
+        
+        String normalized = countryCode.trim().toUpperCase();
+        
+        // Handle special cases
+        if ("UNKNOWN".equals(normalized)) {
+            return "XX"; // Unknown
+        }
+        
+        // Ensure it's exactly 2 characters
+        if (normalized.length() > 2) {
+            return normalized.substring(0, 2);
+        } else if (normalized.length() == 1) {
+            return normalized + "X";
+        }
+        
+        return normalized;
     }
 
     @Override
