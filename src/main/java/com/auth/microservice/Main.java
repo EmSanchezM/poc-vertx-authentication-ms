@@ -21,6 +21,13 @@ public class Main {
     private static HttpServer server;
     
     public static void main(String[] args) {
+        // Verificar si es un comando CLI antes de iniciar el servidor
+        if (args.length > 0 && "seed".equals(args[0])) {
+            // Delegar al SeedCommand
+            com.auth.microservice.infrastructure.adapter.cli.SeedCommand.main(args);
+            return;
+        }
+        
         logger.info("=== INICIANDO AUTH MICROSERVICE ===");
         
         Vertx vertx = Vertx.vertx();

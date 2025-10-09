@@ -1,4 +1,4 @@
-package com.auth.microservice.infrastructure.adapter.database;
+package com.auth.microservice.infrastructure.adapter.seeder;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -155,6 +155,83 @@ public class DatabaseSeeder {
                     logger.info("Los datos básicos ya existen, omitiendo seed automático");
                     return Future.succeededFuture();
                 }
+            });
+    }
+    
+    /**
+     * Ejecuta un seed "fresh" - limpia datos existentes y recrea todo
+     * Similar a 'php artisan db:seed --fresh' de Laravel
+     */
+    public Future<Void> seedFresh() {
+        logger.info("Iniciando seed fresh (limpiando y recreando datos)...");
+        
+        return cleanExistingData()
+            .compose(v -> seedDatabase())
+            .onSuccess(v -> logger.info("Seed fresh completado exitosamente"))
+            .onFailure(error -> logger.error("Error durante seed fresh", error));
+    }
+    
+    /**
+     * Limpia los datos existentes en orden inverso para respetar las foreign keys
+     */
+    private Future<Void> cleanExistingData() {
+        logger.info("Limpiando datos existentes...");
+        
+        String cleanSql = """
+            -- Limpiar en orden inverso para respetar foreign keys
+            DELETE FROM user_sessions;
+            DELETE FROM rate_limits;
+            DELETE FROM role_permissions;
+            DELETE FROM user_roles;
+            DELETE FROM users;
+            DELETE FROM roles;
+            DELETE FROM permissions;
+            
+            -- Reiniciar secuencias
+            ALTER SEQUENCE IF EXISTS users_id_seq RESTART WITH 1;
+            ALTER SEQUENCE IF EXISTS roles_id_seq RESTART WITH 1;
+            ALTER SEQUENCE IF EXISTS permissions_id_seq RESTART WITH 1;
+            """;
+        
+        return pool.query(cleanSql).execute()
+            .map(rows -> {
+                logger.info("Datos existentes limpiados exitosamente");
+                return (Void) null;
+            })
+            .recover(error -> {
+                logger.warn("Advertencia limpiando datos (puede ser normal si las tablas están vacías): {}", 
+                    error.getMessage());
+                return Future.succeededFuture();
+            });
+    }
+    
+    /**
+     * Verifica si existen usuarios de prueba
+     */
+    public Future<Boolean> hasTestUsers() {
+        String checkSql = """
+            SELECT COUNT(*) as test_user_count 
+            FROM users 
+            WHERE email IN ('test@example.com', 'user@example.com', 'moderator@example.com')
+            """;
+        
+        return pool.query(checkSql).execute()
+            .map(rows -> {
+                if (rows.size() > 0) {
+                    var row = rows.iterator().next();
+                    int testUserCount = row.getInteger("test_user_count");
+                    
+                    boolean hasUsers = testUserCount > 0;
+                    logger.info("Verificación de usuarios de prueba - Encontrados: {}, Tiene usuarios: {}", 
+                        testUserCount, hasUsers);
+                    
+                    return hasUsers;
+                }
+                return false;
+            })
+            .recover(error -> {
+                logger.error("Error verificando usuarios de prueba", error);
+                return Future.succeededFuture(false);
             });
     }
 }
