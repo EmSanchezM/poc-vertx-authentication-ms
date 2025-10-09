@@ -191,26 +191,6 @@ make logs ENV=development
 make logs-app ENV=qa
 ```
 
-## 🧪 Testing
-
-### Tests Unitarios
-
-```bash
-make test
-```
-
-### Tests de Integración
-
-```bash
-make test-integration
-```
-
-Los tests incluyen:
-- Configuración de base de datos
-- Validación de migraciones
-- Funcionalidad de archivos de migración
-- Health checks
-
 ## 🚀 Despliegue
 
 ### Desarrollo Local
