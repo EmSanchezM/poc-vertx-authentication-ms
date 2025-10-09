@@ -311,21 +311,3 @@ java -jar build/libs/auth-microservice-1.0.0-fat.jar seed [TIPO]
 # Usando Docker
 ./scripts/docker-seed.sh basic
 ```
-
-### Creación Manual de Usuarios
-
-Los archivos de seed solo crean la estructura básica (permisos y roles). Los usuarios deben crearse manualmente:
-
-#### Usuario Administrador
-
-1. Ejecuta el seed básico: `./scripts/seed.sh basic`
-2. Crea el usuario admin manualmente en la base de datos con un hash BCrypt válido
-3. Asigna el rol `SUPER_ADMIN`
-
-#### Usuarios de Prueba
-
-Los archivos de seed incluyen ejemplos comentados para crear usuarios de prueba. Descomenta y actualiza con hashes BCrypt válidos según necesites.
-
-### Seed Automático
-
-El sistema ejecuta automáticamente el seed básico al iniciar si no encuentra datos existentes.
