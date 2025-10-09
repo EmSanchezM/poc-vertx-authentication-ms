@@ -281,3 +281,83 @@ Para soporte y preguntas:
 - Crear un issue en GitHub
 - Revisar la documentación en `/docs`
 - Consultar los logs con `make logs`
+## 🌱 Da
+tabase Seeds
+
+Los seeds se han separado de las migraciones para mantener una clara separación entre cambios de esquema y datos iniciales.
+
+### Estructura de Seeds
+
+```
+src/main/resources/db/seeds/
+├── 01_permissions.sql      # Permisos del sistema
+├── 02_roles.sql           # Roles básicos
+├── 03_role_permissions.sql # Asignación de permisos a roles
+├── 04_admin_user.sql      # Usuario administrador
+└── 05_test_users.sql      # Usuarios de prueba
+```
+
+### Comandos de Seed
+
+#### Usando Scripts (Recomendado)
+
+```bash
+# Linux/Mac
+./scripts/seed.sh [all|basic|test|check]
+
+# Windows
+.\scripts\seed.ps1 [all|basic|test|check]
+
+# Docker
+./scripts/docker-seed.sh [all|basic|test|check]
+```
+
+#### Usando Java directamente
+
+```bash
+java -jar build/libs/auth-microservice-1.0.0-fat.jar seed [TIPO]
+```
+
+### Tipos de Seed
+
+- **`all`** - Ejecuta todos los seeds (permisos, roles, usuarios)
+- **`basic`** - Ejecuta solo datos básicos (permisos, roles, admin)
+- **`test`** - Ejecuta solo usuarios de prueba
+- **`check`** - Verifica si existen datos básicos
+
+### Ejemplos
+
+```bash
+# Seed completo (primera vez)
+./scripts/seed.sh all
+
+# Solo datos básicos
+./scripts/seed.sh basic
+
+# Solo usuarios de prueba
+./scripts/seed.sh test
+
+# Verificar datos existentes
+./scripts/seed.sh check
+
+# Usando Docker
+./scripts/docker-seed.sh basic
+```
+
+### Creación Manual de Usuarios
+
+Los archivos de seed solo crean la estructura básica (permisos y roles). Los usuarios deben crearse manualmente:
+
+#### Usuario Administrador
+
+1. Ejecuta el seed básico: `./scripts/seed.sh basic`
+2. Crea el usuario admin manualmente en la base de datos con un hash BCrypt válido
+3. Asigna el rol `SUPER_ADMIN`
+
+#### Usuarios de Prueba
+
+Los archivos de seed incluyen ejemplos comentados para crear usuarios de prueba. Descomenta y actualiza con hashes BCrypt válidos según necesites.
+
+### Seed Automático
+
+El sistema ejecuta automáticamente el seed básico al iniciar si no encuentra datos existentes.
