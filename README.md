@@ -141,7 +141,6 @@ Las migraciones se ejecutan automáticamente al iniciar el servicio. Incluyen:
 3. **V3**: Relaciones usuario-rol y rol-permiso
 4. **V4**: Tabla de sesiones JWT
 5. **V5**: Tabla de rate limiting
-6. **V6**: Datos iniciales (roles, permisos, usuario admin)
 
 ### Usuario Administrador por Defecto
 
@@ -249,7 +248,7 @@ make prod-detach
 
 ```bash
 # Ver logs detallados
-docker-compose -f docker-compose.yml -f docker-compose.development.yml logs -f auth-service
+docker-compose -f docker-compose.development.yml logs -f auth-service
 
 # Entrar al contenedor
 docker exec -it authentication-ms sh
@@ -281,10 +280,8 @@ Para soporte y preguntas:
 - Crear un issue en GitHub
 - Revisar la documentación en `/docs`
 - Consultar los logs con `make logs`
-## 🌱 Da
-tabase Seeds
 
-Los seeds se han separado de las migraciones para mantener una clara separación entre cambios de esquema y datos iniciales.
+## 🌱 Database Seeds
 
 ### Estructura de Seeds
 
@@ -302,11 +299,6 @@ src/main/resources/db/seeds/
 #### Usando Scripts (Recomendado)
 
 ```bash
-# Linux/Mac
-./scripts/seed.sh [all|basic|test|check]
-
-# Windows
-.\scripts\seed.ps1 [all|basic|test|check]
 
 # Docker
 ./scripts/docker-seed.sh [all|basic|test|check]
